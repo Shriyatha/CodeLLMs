@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Explore a wide range of programming courses and master coding with Code-Gym.">
+    <title>Courses - Code-Gym</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="header-title">Available Courses</h1>
+            <nav class="header-nav">
+                <a href="/" class="btn btn-secondary">Home</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            {% if courses %}
+            <div class="course-grid">
+                {% for course in courses %}
+                <div class="course-card">
+                    <h2 class="course-title"><a href="/course/{{ course.id }}" class="course-link">{{ course.title }}</a></h2>
+                    <p class="course-description">{{ course.description }}</p>
+                    <a href="/course/{{ course.id }}" class="btn btn-primary">View Course</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No courses available at the moment. Please check back later!</p>
+                <a href="/" class="btn btn-primary">Return Home</a>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Code-Gym. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

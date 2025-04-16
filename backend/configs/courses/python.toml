@@ -1,0 +1,269 @@
+[course]
+id = "python"
+title = "Python Programming"
+description = "Learn Python from basics to advanced concepts"
+
+[[topics]]
+id = "io"
+title = "Input/Output"
+description = "Working with input and output operations"
+
+[[topics.problems]]
+id = "io-easy-1" 
+title = "Basic Input"
+complexity = "easy"
+description = "Write a program that takes a name as input and prints a greeting."
+starter_code = "name = input()\n# Your code here"
+visible_test_cases = [
+    { input = "Alice", expected_output = "Hello, Alice" }
+]
+hidden_test_cases = [
+    { input = "Bob", expected_output = "Hello, Bob" }
+]
+
+[[topics.problems]]
+id = "io-medium-1"
+title = "File Operations"
+complexity = "medium"
+description = "Write a program that reads a file and counts the number of lines."
+starter_code = "# Your code here"
+visible_test_cases = [
+    { input = "file1.txt", expected_output = "3" }
+]
+hidden_test_cases = [
+    { input = "empty.txt", expected_output = "0" },
+    { input = "large.txt", expected_output = "100" }
+]
+
+[[topics.problems]]
+id = "io-hard-1"
+title = "CSV Reader"
+complexity = "hard"
+description = "Write a program that reads a CSV file and outputs the number of rows and columns."
+starter_code = "# Your code here"
+visible_test_cases = [
+    { input = "data.csv", expected_output = "Rows: 100, Columns: 5" }
+]
+hidden_test_cases = [
+    { input = "large_data.csv", expected_output = "Rows: 1000, Columns: 10" }
+]
+
+[[topics]]
+id = "control"
+title = "Control Flow"
+description = "Learn if-else, loops, and control structures"
+
+[[topics.problems]]
+id = "control-easy-1"
+title = "Odd or Even"
+complexity = "easy"
+description = "Check if a number is odd or even."
+starter_code = "num = int(input())\n# Your code here"
+visible_test_cases = [
+    { input = "4", expected_output = "Even" }
+]
+hidden_test_cases = [
+    { input = "7", expected_output = "Odd" }
+]
+
+[[topics.problems]]
+id = "control-medium-1"
+title = "FizzBuzz"
+complexity = "medium"
+description = "Print numbers from 1 to N with FizzBuzz rules."
+starter_code = "n = int(input())\n# Your code here"
+visible_test_cases = [
+    { input = "5", expected_output = "1\n2\nFizz\n4\nBuzz" }
+]
+hidden_test_cases = [
+    { input = "15", expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz" }
+]
+
+[[topics.problems]]
+id = "control-hard-1"
+title = "Prime Numbers"
+complexity = "hard"
+description = "Write a program to print all prime numbers up to N."
+starter_code = "n = int(input())\n# Your code here"
+visible_test_cases = [
+    { input = "10", expected_output = "2\n3\n5\n7" }
+]
+hidden_test_cases = [
+    { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" }
+]
+
+[[topics]]
+id = "functions"
+title = "Functions"
+description = "Define and use functions effectively"
+
+[[topics.problems]]
+id = "functions-easy-1"
+title = "Simple Function"
+complexity = "easy"
+description = "Define a function that returns the square of a number."
+starter_code = "def square(n):\n    # Your code here\n\nprint(square(4))"
+visible_test_cases = [
+    { input = "", expected_output = "16" }
+]
+hidden_test_cases = [
+    { input = "", expected_output = "25" }
+]
+
+[[topics.problems]]
+id = "functions-medium-1"
+title = "Recursive Factorial"
+complexity = "medium"
+description = "Implement factorial using recursion."
+starter_code = "# Your code here"
+visible_test_cases = [
+    { input = "5", expected_output = "120" }
+]
+hidden_test_cases = [
+    { input = "0", expected_output = "1" }
+]
+
+[[topics.problems]]
+id = "functions-hard-1"
+title = "Memoized Fibonacci"
+complexity = "hard"
+description = "Implement Fibonacci sequence using memoization."
+starter_code = "# Your code here"
+visible_test_cases = [
+    { input = "10", expected_output = "55" }
+]
+hidden_test_cases = [
+    { input = "20", expected_output = "6765" }
+]
+
+[[topics]]
+id = "datastructures"
+title = "Data Structures"
+description = "Lists, dictionaries, sets, and more"
+
+[[topics.problems]]
+id = "datastructures-easy-1"
+title = "List Sum"
+complexity = "easy"
+description = "Sum all numbers in a list."
+starter_code = "numbers = list(map(int, input().split()))\n# Your code here"
+visible_test_cases = [
+    { input = "1 2 3", expected_output = "6" }
+]
+hidden_test_cases = [
+    { input = "10 20 30", expected_output = "60" }
+]
+
+[[topics.problems]]
+id = "datastructures-medium-1"
+title = "Word Frequency"
+complexity = "medium"
+description = "Count frequency of each word in a string."
+starter_code = "text = input()\n# Your code here"
+visible_test_cases = [
+    { input = "hello world hello", expected_output = "hello: 2\nworld: 1" }
+]
+hidden_test_cases = [
+    { input = "apple orange apple banana", expected_output = "apple: 2\norange: 1\nbanana: 1" }
+]
+
+[[topics.problems]]
+id = "datastructures-hard-1"
+title = "Largest Product"
+complexity = "hard"
+description = "Find the largest product of two numbers in a list."
+starter_code = "# Your code here"
+visible_test_cases = [
+    { input = "1 2 3 4", expected_output = "12" }
+]
+hidden_test_cases = [
+    { input = "5 7 1 8", expected_output = "56" }
+]
+
+[[topics]]
+id = "oop"
+title = "Object-Oriented Programming"
+description = "Classes, objects, inheritance, and polymorphism"
+
+[[topics.problems]]
+id = "oop-easy-1"
+title = "Basic Class"
+complexity = "easy"
+description = "Create a class `Person` with attributes `name` and `age`, and a method `introduce`."
+starter_code = "class Person:\n    # Your code here"
+visible_test_cases = [
+    { input = "Alice 30", expected_output = "Hello, my name is Alice and I am 30 years old." }
+]
+hidden_test_cases = [
+    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." }
+]
+
+[[topics.problems]]
+id = "oop-medium-1"
+title = "Inheritance"
+complexity = "medium"
+description = "Create a class `Student` that inherits from `Person` and adds a method `study`."
+starter_code = "class Student(Person):\n    # Your code here"
+visible_test_cases = [
+    { input = "Alice 20", expected_output = "Hello, my name is Alice and I am 20 years old.\nI am studying." }
+]
+hidden_test_cases = [
+    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." }
+]
+
+[[topics.problems]]
+id = "oop-hard-1"
+title = "Polymorphism"
+complexity = "hard"
+description = "Create a method `speak` in the `Person` class and override it in the `Student` class."
+starter_code = "class Person:\n    def speak(self):\n        pass\n\nclass Student(Person):\n    # Your code here"
+visible_test_cases = [
+    { input = "Alice", expected_output = "Alice says: Hello, I am a student!" }
+]
+hidden_test_cases = [
+    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" }
+]
+
+[[topics]]
+id = "exceptions"
+title = "Exception Handling"
+description = "Handle exceptions and create custom error messages"
+
+[[topics.problems]]
+id = "exceptions-easy-1"
+title = "Try-Except Block"
+complexity = "easy"
+description = "Handle a division by zero error and print 'Cannot divide by zero'."
+starter_code = "try:\n    result = 10 / 0\nexcept ZeroDivisionError:\n    # Your code here"
+visible_test_cases = [
+    { input = "", expected_output = "Cannot divide by zero" }
+]
+hidden_test_cases = [
+    { input = "", expected_output = "Cannot divide by zero" }
+]
+
+[[topics.problems]]
+id = "exceptions-medium-1"
+title = "Custom Exception"
+complexity = "medium"
+description = "Create a custom exception `NegativeNumberError` and raise it when a negative number is passed."
+starter_code = "class NegativeNumberError(Exception):\n    pass\n\n# Your code here"
+visible_test_cases = [
+    { input = "-5", expected_output = "Negative number error!" }
+]
+hidden_test_cases = [
+    { input = "-10", expected_output = "Negative number error!" }
+]
+
+[[topics.problems]]
+id = "exceptions-hard-1"
+title = "File Not Found Exception"
+complexity = "hard"
+description = "Handle a `FileNotFoundError` when trying to read a non-existent file."
+starter_code = "try:\n    with open('non_existent_file.txt', 'r') as file:\n        # Your code here\nexcept FileNotFoundError:\n    pass"
+visible_test_cases = [
+    { input = "", expected_output = "File not found error!" }
+]
+hidden_test_cases = [
+    { input = "", expected_output = "File not found error!" }
+]

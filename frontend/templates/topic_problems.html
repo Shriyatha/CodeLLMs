@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ topic_id }} Problems - Code-Gym</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header" role="banner">
+        <div class="container">
+            <h1>{{ topic_id }} Problems</h1>
+            <nav aria-label="Main Navigation">
+                <a href="/course/{{ course_id }}" class="btn btn-secondary" aria-label="Back to course overview">Back to Course</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <section class="problems-section" aria-labelledby="problems-list">
+            <h2 id="problems-list" class="sr-only">Problem List for {{ topic_id }}</h2>
+            {% if problems %}
+            <div class="problems-grid">
+                {% for problem in problems %}
+                <div class="problem-card" role="article" aria-labelledby="problem-{{ problem.id }}-header">
+                    <div class="problem-header" id="problem-{{ problem.id }}-header">
+                        <h3>{{ problem.title }}</h3>
+                        <span class="difficulty-badge {{ problem.complexity }}" 
+                              aria-label="Difficulty level: {{ problem.complexity|capitalize }}">
+                            {{ problem.complexity|capitalize }}
+                        </span>
+                    </div>
+                    <p class="problem-description">{{ problem.description }}</p>
+                    <a href="/course/{{ course_id }}/topic/{{ topic_id }}/problem/{{ problem.id }}" 
+                       class="btn btn-primary" 
+                       aria-label="Solve {{ problem.title }}">Solve Problem</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state" role="alert">
+                <p>No problems available for this topic yet.</p>
+                <a href="/course/{{ course_id }}" class="btn btn-primary" 
+                   aria-label="Back to course overview">Back to Course</a>
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer class="footer" role="contentinfo">
+        <div class="container">
+            <p>&copy; 2025 Code-Gym. All rights reserved.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

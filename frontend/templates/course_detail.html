@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learn and master JavaScript through interactive courses and practice problems at Code-Gym">
+    <title>{{ course.title }} - Code-Gym</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="header-title">{{ course.title }}</h1>
+            <nav class="header-nav">
+                <a href="/courses" class="btn btn-secondary">Back to Courses</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <section class="course-description">
+            <div class="container">
+                <p>{{ course.description }}</p>
+            </div>
+        </section>
+
+        <section class="topics-section">
+            <div class="container">
+                <h2 class="section-title">Topics</h2>
+
+                {% if course.topics %}
+                <div class="topics-grid">
+                    {% for topic in course.topics %}
+                    <div class="topic-card">
+                        <h3 class="topic-title">{{ topic.title }}</h3>
+                        <p class="topic-description">{{ topic.description }}</p>
+                        <a href="/course/{{ course.id }}/topic/{{ topic.id }}" class="btn btn-primary">
+                            View Problems
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>No topics available for this course yet. Please check back later!</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Code-Gym. All rights reserved.</p>
+        </div>
+    </footer>
+    
+</body>
+</html>

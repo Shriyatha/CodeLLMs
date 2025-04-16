@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CodeGym problem-solving interface with a clean, modern layout for better user interaction.">
+    <title>{{ problem.title }} - CodeGym</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <main class="problem-container">
+        <!-- Header Section -->
+        <header class="problem-header" aria-labelledby="problem-title">
+            <div class="header-inner">
+                <h1 id="problem-title" class="problem-title">
+                    {{ problem.title }}
+                    <span class="complexity-badge {{ problem.complexity }}" aria-label="Difficulty level: {{ problem.complexity }}">
+                        {{ problem.complexity | capitalize }}
+                    </span>
+                </h1>
+
+                <nav class="breadcrumb" aria-label="Breadcrumb navigation">
+                    <ol>
+                        <li><a href="/courses">Courses</a></li>
+                        <li><a href="/course/{{ course_id }}">{{ course_id | capitalize }}</a></li>
+                        <li><a href="/course/{{ course_id }}/topic/{{ topic_id }}">{{ topic_id | upper }}</a></li>
+                        <li aria-current="page">Problem</li>
+                    </ol>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Problem Content Grid -->
+        <div class="problem-content-grid">
+            <!-- Left Column: Problem Description and Test Cases -->
+            <div class="problem-left-column">
+                <!-- Problem Description -->
+                <section class="problem-description" aria-labelledby="problem-statement-heading">
+                    <h2 id="problem-statement-heading">Problem Statement</h2>
+                    <div class="description-content">
+                        <p>{{ problem.description }}</p>
+                    </div>
+                </section>
+
+                <!-- Sample Test Cases -->
+                <section class="test-cases-section" aria-labelledby="test-cases-heading">
+                    <h2 id="test-cases-heading">Sample Test Cases</h2>
+                    <div class="test-cases-grid">
+                        {% for test in problem.visible_test_cases %}
+                        <article class="test-case-card" aria-labelledby="test-case-{{ loop.index }}-heading">
+                            <div class="test-case-header">
+                                <h3 id="test-case-{{ loop.index }}-heading">Test Case #{{ loop.index }}</h3>
+                            </div>
+                            <div class="test-case-content">
+                                <div class="input-group">
+                                    <span class="label">Input:</span>
+                                    <code class="input-value">{{ test.input }}</code>
+                                </div>
+                                <div class="output-group">
+                                    <span class="label">Expected Output:</span>
+                                    <code class="output-value">{{ test.expected_output }}</code>
+                                </div>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Code Editor, Results & Learning Assistance -->
+            <div class="problem-right-column">
+                <!-- Code Editor Section -->
+                <section class="code-section" aria-labelledby="code-editor-heading">
+                    <div class="section-header">
+                        <h2 id="code-editor-heading">Your Solution</h2>
+                        <div class="language-selector">
+                            <label for="language-select">Language:</label>
+                            <select id="language-select" aria-label="Select programming language">
+                                {% if course_id == 'python' %}
+                                <option value="python" selected>Python</option>
+                                {% elif course_id == 'javascript' %}
+                                <option value="javascript" selected>JavaScript</option>
+                                {% else %}
+                                <option value="python" selected>Python</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="code-editor-container">
+                        <textarea id="code-editor" class="code-input" aria-label="Code editor" spellcheck="false">
+{{ problem.starter_code }}
+                        </textarea>
+
+                        <div class="editor-buttons">
+                            <button id="run-btn" class="btn btn-secondary">
+                                <i class="fas fa-play"></i> Run Code
+                            </button>
+                            <button id="submit-btn" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i> Submit Solution
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Execution Results -->
+                <section class="results-section" aria-labelledby="results-heading">
+                    <h2 id="results-heading">Execution Results</h2>
+                    <div id="results-container" class="results-container">
+                        <div class="placeholder-message">
+                            <p>Your code results will appear here after execution</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Grading Results -->
+                <section id="grading-section" class="grading-section" aria-labelledby="grading-heading" style="display: none;">
+                    <h2 id="grading-heading">Submission Results</h2>
+                    <div id="grading-results" class="grading-results"></div>
+                </section>
+
+                <!-- Learning Assistance -->
+                <section class="assistance-section" aria-labelledby="assistance-heading">
+                    <div class="section-header">
+                        <h2 id="assistance-heading">Learning Assistance</h2>
+                        <div class="assistance-buttons">
+                            <button id="hint-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-lightbulb"></i> Hint
+                            </button>
+                            <button id="explain-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-question-circle"></i> Explain
+                            </button>
+                            <button id="optimize-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-bolt"></i> Optimize
+                            </button>
+                            <button id="pseudocode-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-code"></i> Pseudocode
+                            </button>
+                            <button id="steps-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-list-ol"></i> Steps
+                            </button>
+                        </div>
+                    </div>
+                    <div id="assistance-output" class="assistance-output" aria-live="polite">
+                        <!-- Dynamic assistance content will appear here -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js" defer></script>
+</body>
+
+</html>
