@@ -1,0 +1,1 @@
+{"problem": "Write a program that takes a name as input and prints a greeting.", "code": "name = input()\n# Your code here\nprint(f\"{name}\")\n                        ", "current_level": 0}

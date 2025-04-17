@@ -1,0 +1,1 @@
+'MLFlowLogger' object has no attribute 'log_metrics'

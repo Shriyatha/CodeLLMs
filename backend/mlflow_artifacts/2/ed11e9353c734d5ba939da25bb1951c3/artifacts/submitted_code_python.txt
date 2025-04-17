@@ -1,0 +1,4 @@
+name = input()
+# Your code here
+print(f"{name}")
+                        

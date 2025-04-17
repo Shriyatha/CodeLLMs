@@ -1,0 +1,1 @@
+{"id": "datastructures-easy-1", "title": "List Sum", "description": "Sum all numbers in a list.", "complexity": "easy", "starter_code": "numbers = list(map(int, input().split()))\n# Your code here", "visible_test_cases": [{"input": "1 2 3", "expected_output": "6", "output": "6"}], "hidden_test_cases": [{"input": "10 20 30", "expected_output": "60", "output": "60"}]}

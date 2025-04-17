@@ -1,14 +1,14 @@
 from typing import List, Dict, Optional, Tuple, Any
 import httpx
 import re
-import logging
 import asyncio
 from tenacity import retry, stop_after_attempt, wait_exponential
 from configs.config import Config
 import json
 from enum import Enum
+from app.services.mlflow_logger import MLFlowLogger
 
-logger = logging.getLogger(__name__)
+logger = MLFlowLogger()  
 
 class HintLevel(Enum):
     GENERAL = 1
@@ -21,6 +21,7 @@ class LLMService:
         self.default_model = Config.DEFAULT_LLM
         self.timeout = httpx.Timeout(Config.LLM_TIMEOUT)
         self.client = httpx.AsyncClient()
+        self.mlflow_logger = MLFlowLogger
         self.max_retries = 3
 
     async def __aenter__(self):
@@ -62,10 +63,20 @@ class LLMService:
                 raise ValueError("Empty response")
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error {e.response.status_code}: {e.response.text}")
+            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
+            logger.log_llm_interaction(
+                prompt={"prompt": prompt, "system_message": system_message},
+                response=error_msg,
+                metadata={"error": True, "status_code": e.response.status_code}
+            )
             raise RuntimeError(f"LLM API error: {e.response.text[:200]}")
         except Exception as e:
-            logger.error(f"Generation failed: {str(e)}")
+            error_msg = f"Generation failed: {str(e)}"
+            logger.log_llm_interaction(
+                prompt={"prompt": prompt, "system_message": system_message},
+                response=error_msg,
+                metadata={"error": True, "exception": str(e)}
+            )
             raise RuntimeError("Could not process LLM response")
 
     async def get_progressive_hints(self, problem: str, code: str, current_level: int) -> Tuple[List[str], int]:
@@ -92,6 +103,13 @@ Format your response EXACTLY like this:
                 system_message="You are a programming tutor. Provide only the 3 numbered hints in the specified format."
             )
             
+            # Log successful interaction
+            logger.log_llm_interaction(
+                prompt={"problem": problem, "code": code, "current_level": current_level},
+                response=response,
+                metadata={"method": "get_progressive_hints"}
+            )
+            
             # Parse hints and ensure we have exactly 3
             hints = []
             for line in response.split('\n'):
@@ -105,7 +123,12 @@ Format your response EXACTLY like this:
             return hints[:3], 3
             
         except Exception as e:
-            logger.error(f"Hint generation failed: {str(e)}")
+            error_msg = f"Hint generation failed: {str(e)}"
+            logger.log_llm_interaction(
+                prompt={"problem": problem, "code": code, "current_level": current_level},
+                response=error_msg,
+                metadata={"error": True, "exception": str(e)}
+            )
             return self._get_fallback_hints(), 3
 
     async def explain_errors(
@@ -116,7 +139,15 @@ Format your response EXACTLY like this:
         language: str = "python"
     ) -> Dict:
         """Generate structured error explanation with actionable fixes"""
-        prompt = f"""Programming Language: {language}
+        run_name = f"ExplainError_{language}"
+
+        with self.mlflow_logger.start_run(run_name=run_name):
+            self.mlflow_logger.log_param("language", language)
+            self.mlflow_logger.log_param("problem", problem)
+            self.mlflow_logger.log_text(code, "problematic_code.txt")
+            self.mlflow_logger.log_text(error, "error_message.txt")
+
+            prompt = f"""Programming Language: {language}
 Problem Description:
 {problem}
 
@@ -142,33 +173,52 @@ Format your response as JSON with these keys:
     "common_mistakes": []
 }}"""
 
-        try:
-            response = await self._generate(
-                prompt,
-                system_message="You are a patient programming tutor explaining errors. Return valid JSON."
-            )
-            
             try:
-                result = json.loads(response)
-                return {
-                    "error_type": result.get("error_type", self._extract_error_type(error)),
-                    "explanation": result.get("explanation", ""),
-                    "suggested_fixes": result.get("suggested_fixes", []),
-                    "relevant_line": result.get("relevant_line", self._find_relevant_line(error)),
-                    "common_mistakes": result.get("common_mistakes", [])
+                response = await self._generate(
+                    prompt,
+                    system_message="You are a patient programming tutor explaining errors. Return valid JSON."
+                )
+                system_message="You are a patient programming tutor explaining errors. Return valid JSON."
+                # Log successful interaction
+                self.mlflow_logger.log_dict(
+                    {"prompt": prompt, "system_message": system_message},
+                    "llm_prompt.json"
+                )
+                self.mlflow_logger.log_text(response, "llm_response.txt")
+                self.mlflow_logger.set_tag("llm_interaction_status", "success")
+
+                try:
+                    result = json.loads(response)
+                    explanation_result = {
+                        "error_type": result.get("error_type", self._extract_error_type(error)),
+                        "explanation": result.get("explanation", ""),
+                        "suggested_fixes": result.get("suggested_fixes", []),
+                        "relevant_line": result.get("relevant_line", self._find_relevant_line(error)),
+                        "common_mistakes": result.get("common_mistakes", [])
+                    }
+                    self.mlflow_logger.log_dict(explanation_result, "error_explanation.json")
+                    return explanation_result
+                except json.JSONDecodeError as json_err:
+                    unstructured_result = self._parse_unstructured_error_response(response, error)
+                    self.mlflow_logger.log_dict(unstructured_result, "unstructured_error_explanation.json")
+                    self.mlflow_logger.log_text(f"JSON Decode Error: {json_err}", "json_decode_error.txt")
+                    return unstructured_result
+
+            except Exception as e:
+                error_msg = f"Error explanation failed: {str(e)}"
+                self.mlflow_logger.log_text(error_msg, "error_explanation_failure.txt")
+                self.mlflow_logger.set_tag("llm_interaction_status", "failure")
+                explanation_result = {
+                    "error_type": self._extract_error_type(error),
+                    "explanation": f"Error occurred during explanation: {str(e)}",
+                    "suggested_fixes": ["Review the error message and code"],
+                    "relevant_line": self._find_relevant_line(error),
+                    "common_mistakes": []
                 }
-            except json.JSONDecodeError:
-                return self._parse_unstructured_error_response(response, error)
-                
-        except Exception as e:
-            logger.error(f"Error explanation failed: {str(e)}")
-            return {
-                "error_type": self._extract_error_type(error),
-                "explanation": f"Error occurred: {str(e)}",
-                "suggested_fixes": ["Review the error message carefully"],
-                "relevant_line": self._find_relevant_line(error),
-                "common_mistakes": []
-            }
+                self.mlflow_logger.log_dict(explanation_result, "error_explanation_failure_details.json")
+                return explanation_result
+            finally:
+                pass # 'with' statement handles end_run
         
     async def analyze_optimizations(self, code: str, problem: str, language: str) -> Dict:
         prompt = f"""Analyze this {language} code and provide optimization suggestions.
@@ -206,10 +256,22 @@ Format your response as valid JSON with these exact keys:
                 Return valid JSON with all requested fields."""
             )
             
+            # Log successful interaction
+            logger.log_llm_interaction(
+                prompt={"code": code, "problem": problem, "language": language},
+                response=response,
+                metadata={"method": "analyze_optimizations"}
+            )
+            
             return self._parse_optimization_response(response, code, language)
                 
         except Exception as e:
-            logger.error(f"Optimization analysis failed: {str(e)}")
+            error_msg = f"Optimization analysis failed: {str(e)}"
+            logger.log_llm_interaction(
+                prompt={"code": code, "problem": problem, "language": language},
+                response=error_msg,
+                metadata={"error": True, "exception": str(e)}
+            )
             return self._parse_unstructured_optimization_response("", code)
 
     def _parse_optimization_response(self, response: str, code: str, language: str) -> Dict:

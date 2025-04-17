@@ -1,0 +1,1 @@
+{"input": "apple orange apple banana", "expected_output": "apple: 2\norange: 1\nbanana: 1", "output": "apple: 2\norange: 1\nbanana: 1"}

@@ -15,60 +15,11 @@ from uuid import uuid4
 import re
 from threading import Lock
 import asyncio
+from app.services.grading_service import  SubmissionStorage, grade_submission_workflow
 
 router = APIRouter(prefix="", tags=["problems"])
 logger = logging.getLogger(__name__)
-submissions_storage = {}
-storage_lock = Lock()
-storage_condition = asyncio.Condition()
 
-class SubmissionStorage:
-    @staticmethod
-    async def create(submission_id: str, data: Dict):
-        async with storage_condition:
-            with storage_lock:
-                submissions_storage[submission_id] = data
-            storage_condition.notify_all()
-
-    @staticmethod
-    async def update(submission_id: str, updates: Dict):
-        async with storage_condition:
-            with storage_lock:
-                if submission_id in submissions_storage:
-                    submissions_storage[submission_id].update(updates)
-                    storage_condition.notify_all()
-                    return True
-                logger.error(f"Submission {submission_id} not found for update")
-                return False
-
-    @staticmethod
-    async def get(submission_id: str) -> Optional[Dict]:
-        async with storage_condition:
-            with storage_lock:
-                return submissions_storage.get(submission_id)
-
-    @staticmethod
-    async def wait_for_result(submission_id: str, timeout: float = 30.0):
-        """Wait for a submission result with timeout"""
-        async with storage_condition:
-            # Check if already completed
-            submission = submissions_storage.get(submission_id)
-            if submission and submission.get("status") in ["completed", "failed"]:
-                return submission
-            
-            # Wait for completion
-            try:
-                await asyncio.wait_for(
-                    storage_condition.wait_for(
-                        lambda: submissions_storage.get(submission_id, {}).get("status") in ["completed", "failed"]
-                    ),
-                    timeout=timeout
-                )
-            except asyncio.TimeoutError:
-                logger.warning(f"Timeout waiting for submission {submission_id}")
-                return None
-            
-            return submissions_storage.get(submission_id)
 
 # Models
 class SubmissionRequest(BaseModel):
@@ -632,159 +583,6 @@ async def generate_pseudocode(
             detail="Failed to generate pseudocode"
         )
 
-# Tasks
-# First, modify your tasks to be regular async functions since we're not using Prefect's task features
-async def validate_submission(code: str, language: str):
-    """Validate code submission"""
-    if not code.strip():
-        raise ValueError("Empty code submission")
-    if language not in ["python", "javascript"]:
-        raise ValueError(f"Unsupported language: {language}")
-    if len(code) > 10000:
-        raise ValueError("Code too long (max 10,000 characters)")
-    return True
-
-async def execute_tests(
-    code: str, 
-    language: str,
-    test_cases: List[Dict],
-    execution_service: CodeExecutionService
-):
-    """Execute code against test cases"""
-    if not test_cases:
-        raise ValueError("No test cases provided")
-    
-    return await execution_service.execute_code(
-        code=code,
-        language=language,
-        test_cases=test_cases
-    )
-
-async def calculate_score(test_results: List[Dict], visible_count: int):
-    """Calculate score based on test results"""
-    if not test_results:
-        raise ValueError("No test results provided")
-    
-    total_tests = len(test_results)
-    passed_tests = sum(1 for r in test_results if r.get('passed', False))
-    
-    hidden_passed = sum(1 for r in test_results[visible_count:] if r.get('passed', False))
-    hidden_total = total_tests - visible_count
-    
-    if hidden_total > 0:
-        score = (0.7 * (passed_tests / total_tests)) + (0.3 * (hidden_passed / hidden_total))
-    else:
-        score = passed_tests / total_tests
-    
-    return {
-        "score": round(score * 100, 2),
-        "passed": passed_tests == total_tests,
-        "passed_tests": passed_tests,
-        "total_tests": total_tests
-    }
-
-async def generate_feedback(
-    code: str,
-    test_results: List[Dict],
-    llm: LLMService,
-    problem_description: str
-):
-    """Generate feedback using LLM"""
-    if not test_results:
-        return "No test results available"
-    
-    errors = [r['error'] for r in test_results if not r.get('passed', False) and r.get('error')]
-    
-    if errors:
-        feedback = await llm.explain_errors(
-            error="\n".join(errors),
-            code=code,
-            problem=problem_description
-        )
-        return feedback.get('explanation', 'Failed some test cases')
-    return "All test cases passed!"
-
-# Then modify your flow to use these directly
-@flow(name="grade_submission_workflow")
-async def grade_submission_workflow(
-    submission_id: str,
-    code: str,
-    language: str,
-    problem: Dict,
-    execution_service: CodeExecutionService,
-    llm: LLMService
-):
-    """Execute grading and store results"""
-    try:
-        test_cases = problem.get('visible_test_cases', []) + problem.get('hidden_test_cases', [])
-        visible_count = len(problem.get('visible_test_cases', []))
-        
-        # Execute tests
-        test_results = await execution_service.execute_code(
-            code=code,
-            language=language,
-            test_cases=test_cases
-        )
-        
-        # Calculate score
-        total_tests = len(test_results)
-        passed_tests = sum(1 for r in test_results if r.get('passed', False))
-        score = (passed_tests / total_tests) * 100 if total_tests > 0 else 0
-        
-        # Generate feedback
-        feedback = "All test cases passed!"
-        if passed_tests < total_tests:
-            # Safely collect error messages, filtering out None values
-            errors = []
-            for r in test_results:
-                if not r.get('passed', False):
-                    error_msg = r.get('error')
-                    if error_msg is not None:
-                        errors.append(str(error_msg))
-                    else:
-                        errors.append("Test failed (no error message available)")
-            
-            if errors:  # Only call LLM if we have actual errors
-                try:
-                    error_text = "\n".join(errors)
-                    feedback_response = await llm.explain_errors(
-                        error=error_text,
-                        code=code,
-                        problem=problem.get('description', '')
-                    )
-                    feedback = feedback_response.get('explanation', 'Some test cases failed')
-                except Exception as e:
-                    logger.error(f"Failed to generate feedback: {str(e)}")
-                    feedback = "Some test cases failed (could not generate detailed feedback)"
-        
-        # Store results
-        result = {
-            "passed": passed_tests == total_tests,
-            "score": round(score, 2),
-            "feedback": feedback,
-            "execution_time": datetime.now(timezone.utc).isoformat(),
-            "test_results": test_results
-        }
-        
-        await SubmissionStorage.update(submission_id, {
-            "status": "completed",
-            "result": result,
-            "updated_at": datetime.now(timezone.utc)
-        })
-        
-    except Exception as e:
-        logger.error(f"Grading failed for {submission_id}: {str(e)}", exc_info=True)
-        await SubmissionStorage.update(submission_id, {
-            "status": "failed",
-            "result": {
-                "error": str(e),
-                "passed": False,
-                "score": 0,
-                "feedback": f"Grading failed: {str(e)}"
-            },
-            "updated_at": datetime.now(timezone.utc)
-        })
-        raise
 
 async def run_flow_in_background(flow_func, *args, **kwargs):
     """Helper function to properly run a flow in the background"""
@@ -792,11 +590,6 @@ async def run_flow_in_background(flow_func, *args, **kwargs):
         await flow_func(*args, **kwargs)
     except Exception as e:
         logger.error(f"Flow execution failed: {str(e)}", exc_info=True)
-
-# Finally, modify your submit endpoint
-@router.post("/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/submit",
-            response_model=SubmissionResponse,
-            status_code=status.HTTP_202_ACCEPTED)
 
 @router.post("/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/submit",
             response_model=SubmissionResponse)
@@ -807,116 +600,69 @@ async def submit_problem(
     problem_id: str = Path(...),
     submission: SubmissionRequest = Body(...),
     execution_service: CodeExecutionService = Depends(get_execution_service),
-    llm: LLMService = Depends(get_llm_service),
+    llm_service: LLMService = Depends(get_llm_service),
     loader: CourseLoader = Depends(get_course_loader)
 ):
     """Submission endpoint that waits for completion"""
+    submission_id = str(uuid4())
+    timestamp = datetime.now(timezone.utc)
+
+    # Initialize storage
+    submission_data_init = {
+        "submission_id": submission_id,
+        "user_id": submission.user_id,
+        "problem_id": problem_id,
+        "course_id": course_id,
+        "topic_id": topic_id,
+        "status": "processing",  # Start as processing
+        "timestamp": timestamp.isoformat(),  # Store as ISO string
+        "code": submission.code,
+        "language": submission.language,
+        "result": None,
+        "updated_at": timestamp.isoformat()  # Store as ISO string
+    }
+    await SubmissionStorage.create(submission_id, submission_data_init)
+
     try:
         problem = await loader.get_problem(course_id, topic_id, problem_id)
         if not problem:
             raise HTTPException(status_code=404, detail="Problem not found")
-        
-        submission_id = str(uuid4())
-        timestamp = datetime.now(timezone.utc)
-        
-        # Initialize storage
-        await SubmissionStorage.create(submission_id, {
-            "submission_id": submission_id,
-            "user_id": submission.user_id,
-            "problem_id": problem_id,
-            "course_id": course_id,
-            "topic_id": topic_id,
-            "status": "processing",  # Start as processing
-            "timestamp": timestamp,
-            "code": submission.code,
-            "language": submission.language,
-            "result": None,
-            "updated_at": timestamp
+
+        #grading_service = GradingService(execution_service, llm_service)
+        result = await grade_submission_workflow(
+            submission_id=submission_id,
+            code=submission.code,
+            language=submission.language,
+            problem=problem,
+            execution_service=execution_service,
+            llm_service=llm_service
+        )
+
+        final_status = "completed" if result.get("passed") else "failed"
+        await SubmissionStorage.update(submission_id, {
+            "status": final_status,
+            "result": result,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat()
         })
-        
-        # Run the flow synchronously (not in background)
-        try:
-            await grade_submission_workflow(
-                submission_id=submission_id,
-                code=submission.code,
-                language=submission.language,
-                problem=problem,
-                execution_service=execution_service,
-                llm=llm
-            )
-        except Exception as e:
-            logger.error(f"Grading failed: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Grading process failed"
-            )
-        
-        # Get the final result
-        submission_data = await SubmissionStorage.get(submission_id)
-        if not submission_data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve submission results"
-            )
-        
+
         return SubmissionResponse(
             submission_id=submission_id,
-            status=submission_data["status"],
-            timestamp=submission_data["timestamp"],
-            result=submission_data["result"]
+            status=final_status,
+            timestamp=timestamp,
+            result=result
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Submission failed: {str(e)}", exc_info=True)
+        logger.error(f"Grading failed: {str(e)}")
+        await SubmissionStorage.update(submission_id, {
+            "status": "failed",
+            "result": {"error": str(e)},
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process submission"
-        )
-
-@router.get("/submissions/{submission_id}",
-           response_model=SubmissionResponse)
-async def get_submission(
-    submission_id: str = Path(..., description="ID of the submission")
-):
-    """Get submission with guaranteed result visibility"""
-    try:
-        # Wait for completion if still processing
-        submission = await SubmissionStorage.wait_for_result(submission_id)
-        
-        if not submission:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Submission not found"
-            )
-        
-        # Verify consistency
-        if submission.get("status") == "completed" and not submission.get("result"):
-            logger.error(f"Inconsistent state for {submission_id}")
-            submission["status"] = "failed"
-            submission["result"] = {
-                "error": "Result not properly stored",
-                "passed": False,
-                "score": 0
-            }
-            await SubmissionStorage.update(submission_id, submission)
-        
-        return SubmissionResponse(
-            submission_id=submission_id,
-            status=submission.get("status", "unknown"),
-            timestamp=submission["timestamp"],
-            result=submission.get("result")
-        )
-        
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail="Submission processing timed out"
-        )
-    except Exception as e:
-        logger.error(f"Failed to get submission {submission_id}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve submission"
+            detail="Grading process failed"
         )

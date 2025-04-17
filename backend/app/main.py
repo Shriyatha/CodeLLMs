@@ -3,6 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import courses, problems
 import logging
+import subprocess
+import threading
+import time
+from contextlib import asynccontextmanager
+from app.services.mlflow_logger import MLFlowLogger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +32,6 @@ app.add_middleware(
 # Include routers
 app.include_router(courses.router, prefix="/api/courses")
 app.include_router(problems.router, prefix="/api/problems")
-#app.include_router(submissions.router, prefix="/api/submissions")
 
 @app.get("/")
 async def root():

@@ -1,0 +1,5 @@
+tracking:
+    uri: "http://localhost:5001"
+    experiment: "CodeGym_Submissions"
+artifact:
+    location: "./mlflow_artifacts"

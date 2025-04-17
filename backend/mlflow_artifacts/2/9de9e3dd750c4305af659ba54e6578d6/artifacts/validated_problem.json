@@ -1,0 +1,1 @@
+{"id": "control-easy-1", "title": "Odd or Even", "description": "Check if a number is odd or even.", "complexity": "easy", "starter_code": "num = int(input())\n# Your code here", "visible_test_cases": [{"input": "4", "expected_output": "Even", "output": "Even"}], "hidden_test_cases": [{"input": "7", "expected_output": "Odd", "output": "Odd"}]}

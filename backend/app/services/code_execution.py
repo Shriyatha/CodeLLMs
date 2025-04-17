@@ -6,6 +6,9 @@ import tarfile
 import time
 from typing import List, Dict
 import socket
+from app.services.mlflow_logger import MLFlowLogger
+import mlflow
+
 class CodeExecutionService:
     def __init__(self):
         self.client = docker.from_env()
@@ -15,12 +18,19 @@ class CodeExecutionService:
         self.cpu_quota = 50000
         self.logger = logging.getLogger(__name__)
         self.max_output_size = 1024 * 1024  # 1MB max output
+        self.mlflow_logger = MLFlowLogger()
 
     async def execute_code(self, code: str, language: str, test_cases: List[Dict]) -> List[Dict]:
         print(f"Starting execution for {language} code with {len(test_cases)} test cases")
         results = []
-        
+        run_execute = None
+
         try:
+            run_execute = self.mlflow_logger.start_run(run_name=f"ExecuteCode_{language}")
+            self.mlflow_logger.log_param("language", language)
+            self.mlflow_logger.log_param("num_test_cases", len(test_cases))
+            self.mlflow_logger.log_text(code, f"submitted_code_{language}.txt")
+
             # Determine container settings
             if language.lower() == 'python':
                 image = 'python:3.12-slim'
@@ -38,64 +48,91 @@ class CodeExecutionService:
                 input_data = str(case.get('input', ''))
                 expected = str(case.get('expected_output', ''))
                 visible = case.get('visible', True)
-                
-                container = None
-                try:
-                    # Create and start container
-                    container = await self._create_and_start_container(image)
-                    
-                    # Write code to container
-                    await self._write_code_to_container(container, code, filename)
-                    
-                    # Execute code
-                    exit_code, output = await self._execute_in_container(
-                        container, exec_cmd, input_data
-                    )
-                    
-                    # Process results
-                    if len(output) > self.max_output_size:
-                        output = output[:self.max_output_size] + "... [OUTPUT TRUNCATED]"
-                    
-                    results.append({
-                        'test_case': i,
-                        'input': input_data,
-                        'output': output.strip(),
-                        'expected': expected,
-                        'passed': output.strip() == expected,
-                        'visible': visible,
-                        'error': None,
-                        'exit_code': exit_code
-                    })
+                run_case = None
 
-                except asyncio.TimeoutError:
-                    results.append({
-                        'test_case': i,
-                        'input': input_data,
-                        'output': '',
-                        'expected': expected,
-                        'passed': False,
-                        'visible': visible,
-                        'error': f"Execution timed out after {self.timeout} seconds",
-                        'exit_code': -1
-                    })
-                except Exception as e:
-                    results.append({
-                        'test_case': i,
-                        'input': input_data,
-                        'output': '',
-                        'expected': expected,
-                        'passed': False,
-                        'visible': visible,
-                        'error': str(e),
-                        'exit_code': -1
-                    })
+                try:
+                    run_case = self.mlflow_logger.start_run(run_name=f"TestCase_{i}", nested=True)
+                    self.mlflow_logger.log_param("test_case", i)
+                    self.mlflow_logger.log_param("input", input_data)
+                    self.mlflow_logger.log_param("expected_output", expected)
+                    self.mlflow_logger.log_param("visible", visible)
+
+                    container = None
+                    try:
+                        # Create and start container
+                        container = await self._create_and_start_container(image)
+
+                        # Write code to container
+                        await self._write_code_to_container(container, code, filename)
+
+                        # Execute code
+                        exit_code, output = await self._execute_in_container(
+                            container, exec_cmd, input_data
+                        )
+
+                        # Process results
+                        if len(output) > self.max_output_size:
+                            output = output[:self.max_output_size] + "... [OUTPUT TRUNCATED]"
+
+                        result = {
+                            'test_case': i,
+                            'input': input_data,
+                            'output': output.strip(),
+                            'expected': expected,
+                            'passed': output.strip() == expected,
+                            'visible': visible,
+                            'error': None,
+                            'exit_code': exit_code
+                        }
+                        results.append(result)
+                        self.mlflow_logger.log_dict(result, f"test_case_{i}_result.json")
+
+                    except asyncio.TimeoutError as e:
+                        error_msg = f"Execution timed out after {self.timeout} seconds"
+                        result = {
+                            'test_case': i,
+                            'input': input_data,
+                            'output': '',
+                            'expected': expected,
+                            'passed': False,
+                            'visible': visible,
+                            'error': error_msg,
+                            'exit_code': -1
+                        }
+                        results.append(result)
+                        self.mlflow_logger.log_dict(result, f"test_case_{i}_result.json")
+                        self.mlflow_logger.log_text(error_msg, f"test_case_{i}_error.txt")
+
+                    except Exception as e:
+                        error_msg = str(e)
+                        result = {
+                            'test_case': i,
+                            'input': input_data,
+                            'output': '',
+                            'expected': expected,
+                            'passed': False,
+                            'visible': visible,
+                            'error': error_msg,
+                            'exit_code': -1
+                        }
+                        results.append(result)
+                        self.mlflow_logger.log_dict(result, f"test_case_{i}_result.json")
+                        self.mlflow_logger.log_text(error_msg, f"test_case_{i}_error.txt")
+
+                    finally:
+                        if container:
+                            await self._cleanup_container(container)
                 finally:
-                    if container:
-                        await self._cleanup_container(container)
+                    if run_case:
+                        mlflow.end_run()
 
         except Exception as e:
             self.logger.error(f"Execution failed: {str(e)}", exc_info=True)
+            self.mlflow_logger.log_text(f"Execution failed: {str(e)}", "execution_failure.txt")
             raise RuntimeError(f"Code execution failed: {str(e)}")
+        finally:
+            if run_execute:
+                mlflow.end_run()
 
         return results
 
@@ -113,16 +150,16 @@ class CodeExecutionService:
             working_dir='/tmp',
             detach=True
         )
-        
+
         container.start()
-        
+
         # Wait for container to be ready
         for _ in range(5):
             container.reload()
             if container.status == 'running':
                 return container
             await asyncio.sleep(0.5)
-        
+
         raise RuntimeError(f"Container failed to start. Status: {container.status}")
 
     async def _write_code_to_container(self, container, code: str, filename: str):
@@ -135,13 +172,13 @@ class CodeExecutionService:
             tarinfo.size = len(file_data)
             tarinfo.mode = 0o444  # Read-only
             tar.addfile(tarinfo, io.BytesIO(file_data))
-        
+
         tar_stream.seek(0)
-        
+
         # Write to container
         if not container.put_archive('/tmp', tar_stream):
             raise RuntimeError("Failed to write code to container")
-        
+
         # Verify file exists
         exit_code, _ = container.exec_run(['test', '-f', f'/tmp/{filename}'])
         if exit_code != 0:
@@ -220,20 +257,30 @@ class CodeExecutionService:
 
     async def compile_code(self, code: str, language: str) -> Dict:
         """Check code syntax in a disposable container"""
+        run_compile = None
         try:
+            run_compile = self.mlflow_logger.start_run(run_name=f"CompileCode_{language}")
+            self.mlflow_logger.log_param("language", language)
+            self.mlflow_logger.log_text(code, f"compilation_code_{language}.txt")
             if language.lower() == 'python':
-
-                return await self._compile_python(code)
+                result = await self._compile_python(code)
             elif language.lower() == 'javascript':
-                return await self._compile_javascript(code)
+                result = await self._compile_javascript(code)
             else:
                 raise ValueError(f"Unsupported language: {language}")
+            self.mlflow_logger.log_dict(result, "compilation_result.json")
+            return result
         except Exception as e:
-            return {
+            error_dict = {
                 "success": False,
                 "error": str(e),
                 "raw_logs": ""
             }
+            self.mlflow_logger.log_dict(error_dict, "compilation_error.json")
+            return error_dict
+        finally:
+            if run_compile:
+                mlflow.end_run()
 
     async def _compile_python(self, code: str) -> Dict:
         """Python compilation check"""
@@ -250,7 +297,7 @@ class CodeExecutionService:
                 detach=True
             )
             container.start()
-            
+
             # Wait for container to be ready
             for _ in range(5):
                 container.reload()
@@ -259,10 +306,10 @@ class CodeExecutionService:
                 await asyncio.sleep(0.5)
             else:
                 raise RuntimeError("Container failed to start")
-            
+
             # Write code to container
             await self._write_code_to_container(container, code, 'code.py')
-            
+
             # Create a properly formatted Python script
             compile_script = """\
 import sys
@@ -281,14 +328,14 @@ except Exception as e:
 """
             # Write the compile script to a temporary file in the container
             await self._write_code_to_container(container, compile_script, 'compile_check.py')
-            
+
             # Execute compilation check
             exit_code, output = await self._execute_in_container(
                 container,
                 ['python', '/tmp/compile_check.py'],
                 ''
             )
-            
+
             return {
                 "success": exit_code == 0,
                 "message": "Compilation successful" if exit_code == 0 else "Compilation failed",
@@ -314,7 +361,7 @@ except Exception as e:
                 detach=True
             )
             container.start()
-            
+
             # Wait for container to be ready
             for _ in range(5):
                 container.reload()
@@ -323,17 +370,17 @@ except Exception as e:
                 await asyncio.sleep(0.5)
             else:
                 raise RuntimeError("Container failed to start")
-            
+
             # Write code to container
             await self._write_code_to_container(container, code, 'code.js')
-            
+
             # Execute compilation check
             exit_code, output = await self._execute_in_container(
                 container,
                 ['node', '--check', '/tmp/code.js'],
                 ''
             )
-            
+
             return {
                 "success": exit_code == 0,
                 "message": "Compilation successful" if exit_code == 0 else "Compilation failed",
