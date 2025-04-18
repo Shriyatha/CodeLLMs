@@ -3,10 +3,9 @@
 import logging
 from typing import Annotated
 
+from app.services.course_loader import CourseLoader
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel
-
-from app.services.course_loader import CourseLoader
 
 router = APIRouter(prefix="", tags=["courses"])
 logger = logging.getLogger(__name__)

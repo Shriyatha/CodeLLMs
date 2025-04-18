@@ -1,10 +1,9 @@
-# app/main.py
+"""Main entry point for the Code-Gym backend API using FastAPI."""
 import logging
 
+from app.routes import courses, problems
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.routes import courses, problems
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,9 +30,11 @@ app.include_router(courses.router, prefix="/api/courses")
 app.include_router(problems.router, prefix="/api/problems")
 
 @app.get("/")
-async def root():
+async def root() -> dict:
+    """Return a welcome message indicating the API is running."""
     return {"message": "Code-Gym API is running"}
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict:
+    """Return the health status of the API."""
     return {"status": "healthy"}

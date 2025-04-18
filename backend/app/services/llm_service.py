@@ -11,10 +11,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from app.services.mlflow_logger import MLFlowLogger
 from configs.config import Config
 from tenacity import retry, stop_after_attempt, wait_exponential
-
-from app.services.mlflow_logger import MLFlowLogger
 
 # Create __init__.py if it doesn't exist to define the package
 init_path = Path(__file__).parent / "__init__.py"

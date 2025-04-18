@@ -10,6 +10,10 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
+from app.services.code_execution import CodeExecutionService
+from app.services.course_loader import CourseLoader
+from app.services.grading_service import SubmissionStorage, grade_submission_workflow
+from app.services.llm_service import LLMService
 from fastapi import (
     APIRouter,
     Depends,
@@ -18,11 +22,6 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, Field
-
-from app.services.code_execution import CodeExecutionService
-from app.services.course_loader import CourseLoader
-from app.services.grading_service import SubmissionStorage, grade_submission_workflow
-from app.services.llm_service import LLMService
 
 router = APIRouter(prefix="", tags=["problems"])
 logger = logging.getLogger(__name__)

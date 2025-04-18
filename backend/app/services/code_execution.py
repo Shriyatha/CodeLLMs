@@ -8,9 +8,8 @@ import tarfile
 
 import docker
 import mlflow
-from docker.models.containers import Container
-
 from app.services.mlflow_logger import MLFlowLogger
+from docker.models.containers import Container
 
 
 class CodeExecutionService:

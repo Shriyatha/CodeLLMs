@@ -6,9 +6,8 @@ from typing import Any
 
 import mlflow
 import toml
-from configs.config import Config
-
 from app.services.mlflow_logger import MLFlowLogger
+from configs.config import Config
 
 logger = logging.getLogger(__name__)
 
