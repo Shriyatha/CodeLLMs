@@ -1,1 +1,0 @@
-{"id": "datastructures-hard-1", "title": "Largest Product", "description": "Find the largest product of two numbers in a list.", "complexity": "hard", "starter_code": "# Your code here", "visible_test_cases": [{"input": "1 2 3 4", "expected_output": "12", "output": "12"}], "hidden_test_cases": [{"input": "5 7 1 8", "expected_output": "56", "output": "56"}]}

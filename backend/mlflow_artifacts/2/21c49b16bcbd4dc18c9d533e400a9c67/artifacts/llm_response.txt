@@ -1,3 +1,0 @@
-1. First hint: You need to prompt the user for input using the input() function and store it in a variable called name.
-2. Second hint: Use string formatting to create a personalized greeting by including the name variable inside an f-string.
-3. Third hint: Remember to add a space between the name and the greeting, so that the output looks like this: "Hello [name]!"

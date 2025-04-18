@@ -1,12 +1,13 @@
-import toml
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-import logging
-from configs.config import Config
-import time
 import json
-from app.services.mlflow_logger import MLFlowLogger
+import logging
+import time
+from typing import Any
+
 import mlflow
+import toml
+from configs.config import Config
+
+from app.services.mlflow_logger import MLFlowLogger
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class CourseLoader:
         self._last_loaded = None
         self.mlflow_logger = MLFlowLogger()  # Instantiate MLFlowLogger
 
-    async def load_all_courses(self) -> Dict[str, Dict[str, Any]]:
+    async def load_all_courses(self) -> dict[str, dict[str, Any]]:
         """Load all courses from TOML files with caching"""
         courses = {}
         errored_files = []
@@ -35,20 +36,20 @@ class CourseLoader:
             for course_file in Config.COURSES_DIR.glob("*.toml"):
                 try:
                     file_mtime = course_file.stat().st_mtime
-                    with open(course_file, 'r', encoding='utf-8') as f:
+                    with open(course_file, encoding="utf-8") as f:
                         data = toml.load(f)
-                        if 'course' not in data:
+                        if "course" not in data:
                             logger.warning(f"Invalid course file format in {course_file}")
                             errored_files.append(str(course_file))
                             continue
 
-                        course = self._validate_course(data['course'])
-                        topics = self._process_topics(data.get('topics', []))
+                        course = self._validate_course(data["course"])
+                        topics = self._process_topics(data.get("topics", []))
 
-                        courses[course['id']] = {
+                        courses[course["id"]] = {
                             **course,
-                            'topics': topics,
-                            'last_modified': file_mtime
+                            "topics": topics,
+                            "last_modified": file_mtime,
                         }
                         loaded_count += 1
                 except Exception as e:
@@ -82,27 +83,27 @@ class CourseLoader:
             return False
 
         for course_id, course_data in self._courses_cache.items():
-            if course_data.get('last_modified', 0) > self._last_loaded:
+            if course_data.get("last_modified", 0) > self._last_loaded:
                 return False
         return True
 
-    def _validate_course(self, course_data: Dict) -> Dict:
+    def _validate_course(self, course_data: dict) -> dict:
         """Validate course structure and set defaults"""
         run = None
         try:
             run = self.mlflow_logger.start_run(run_name="ValidateCourse", nested=True)
             self.mlflow_logger.log_param("course_data", course_data)
-            required_fields = ['id', 'title', 'description']
+            required_fields = ["id", "title", "description"]
             if not all(field in course_data for field in required_fields):
                 error_msg = "Course missing required fields"
                 self.mlflow_logger.log_text(error_msg, "validation_error")
                 raise ValueError(error_msg)
 
             validated_course = {
-                'id': course_data['id'],
-                'title': course_data['title'],
-                'description': course_data.get('description', ''),
-                'language': course_data.get('language', 'python')
+                "id": course_data["id"],
+                "title": course_data["title"],
+                "description": course_data.get("description", ""),
+                "language": course_data.get("language", "python"),
             }
             self.mlflow_logger.log_dict(validated_course, "validated_course.json")
             return validated_course
@@ -110,7 +111,7 @@ class CourseLoader:
             if run:
                 mlflow.end_run()
 
-    def _process_topics(self, topics: List[Dict]) -> List[Dict]:
+    def _process_topics(self, topics: list[dict]) -> list[dict]:
         """Process and validate topics structure"""
         validated_topics = []
         run_topics = None
@@ -122,17 +123,17 @@ class CourseLoader:
                 try:
                     run_topic = self.mlflow_logger.start_run(run_name=f"ProcessTopic_{topic.get('id', 'unknown')}", nested=True)
                     self.mlflow_logger.log_param("raw_topic_data", topic)
-                    if 'id' not in topic or 'title' not in topic:
+                    if "id" not in topic or "title" not in topic:
                         warning_msg = "Topic missing required fields, skipping"
                         logger.warning(warning_msg)
                         self.mlflow_logger.log_text(warning_msg, "validation_warning")
                         continue
 
                     validated_topic = {
-                        'id': topic['id'],
-                        'title': topic['title'],
-                        'description': topic.get('description', ''),
-                        'problems': self._process_problems(topic.get('problems', []))
+                        "id": topic["id"],
+                        "title": topic["title"],
+                        "description": topic.get("description", ""),
+                        "problems": self._process_problems(topic.get("problems", [])),
                     }
                     self.mlflow_logger.log_dict(validated_topic, "validated_topic.json")
                     validated_topics.append(validated_topic)
@@ -150,7 +151,7 @@ class CourseLoader:
                 mlflow.end_run()
         return validated_topics
 
-    def _process_problems(self, problems: List[Dict]) -> List[Dict]:
+    def _process_problems(self, problems: list[dict]) -> list[dict]:
         """Process and validate problems structure"""
         validated_problems = []
         run_problems = None
@@ -162,25 +163,25 @@ class CourseLoader:
                 try:
                     run_problem = self.mlflow_logger.start_run(run_name=f"ProcessProblem_{problem.get('id', 'unknown')}", nested=True)
                     self.mlflow_logger.log_param("raw_problem_data", problem)
-                    if 'id' not in problem or 'title' not in problem:
+                    if "id" not in problem or "title" not in problem:
                         warning_msg = "Problem missing required fields, skipping"
                         logger.warning(warning_msg)
                         self.mlflow_logger.log_text(warning_msg, "validation_warning")
                         continue
 
                     validated_problem = {
-                        'id': problem['id'],
-                        'title': problem['title'],
-                        'description': problem.get('description', ''),
-                        'complexity': problem.get('complexity', 'medium'),
-                        'starter_code': problem.get('starter_code', ''),
-                        'visible_test_cases': problem.get('visible_test_cases', []),
-                        'hidden_test_cases': problem.get('hidden_test_cases', [])
+                        "id": problem["id"],
+                        "title": problem["title"],
+                        "description": problem.get("description", ""),
+                        "complexity": problem.get("complexity", "medium"),
+                        "starter_code": problem.get("starter_code", ""),
+                        "visible_test_cases": problem.get("visible_test_cases", []),
+                        "hidden_test_cases": problem.get("hidden_test_cases", []),
                     }
 
                     # Validate test cases
-                    self._validate_test_cases(validated_problem['visible_test_cases'])
-                    self._validate_test_cases(validated_problem['hidden_test_cases'])
+                    self._validate_test_cases(validated_problem["visible_test_cases"])
+                    self._validate_test_cases(validated_problem["hidden_test_cases"])
 
                     self.mlflow_logger.log_dict(validated_problem, "validated_problem.json")
                     validated_problems.append(validated_problem)
@@ -198,7 +199,7 @@ class CourseLoader:
                 mlflow.end_run()
         return validated_problems
 
-    def _validate_test_cases(self, test_cases: List[Dict]):
+    def _validate_test_cases(self, test_cases: list[dict]):
         """Flexible test case validation that handles both 'output' and 'expected_output'"""
         run_test_cases = None
         try:
@@ -220,21 +221,21 @@ class CourseLoader:
                         raise ValueError(error_msg)
 
                     # Handle both 'output' and 'expected_output'
-                    if 'expected_output' in case:
-                        case['output'] = case['expected_output']
-                    elif 'output' not in case:
+                    if "expected_output" in case:
+                        case["output"] = case["expected_output"]
+                    elif "output" not in case:
                         error_msg = "Test case missing required output field"
                         self.mlflow_logger.log_text(error_msg, "validation_error")
                         raise ValueError(error_msg)
 
                     # Set default empty string if input is missing
-                    if 'input' not in case:
-                        case['input'] = ""
+                    if "input" not in case:
+                        case["input"] = ""
                         self.mlflow_logger.log_param("input_missing", True)
 
                     # Ensure output is string
-                    if not isinstance(case['output'], str):
-                        case['output'] = str(case['output'])
+                    if not isinstance(case["output"], str):
+                        case["output"] = str(case["output"])
                         self.mlflow_logger.log_param("output_converted_to_string", True)
                     self.mlflow_logger.log_dict(case, "validated_test_case.json")
                 finally:
@@ -243,9 +244,8 @@ class CourseLoader:
         finally:
             if run_test_cases:
                 mlflow.end_run()
-        return
 
-    async def get_course(self, course_id: str) -> Optional[Dict[str, Any]]:
+    async def get_course(self, course_id: str) -> dict[str, Any] | None:
         """Get a single course by ID"""
         run = None
         try:
@@ -262,7 +262,7 @@ class CourseLoader:
             if run:
                 mlflow.end_run()
 
-    async def get_topic(self, course_id: str, topic_id: str) -> Optional[Dict[str, Any]]:
+    async def get_topic(self, course_id: str, topic_id: str) -> dict[str, Any] | None:
         """Get a topic from a course"""
         run = None
         try:
@@ -271,23 +271,23 @@ class CourseLoader:
             self.mlflow_logger.log_param("topic_id", topic_id)
             course = await self.get_course(course_id)
             if not course:
-                self.mlflow_logger.log_text("Course not found", f"get_topic_status")
+                self.mlflow_logger.log_text("Course not found", "get_topic_status")
                 return None
 
             topic = next(
-                (t for t in course.get('topics', []) if t['id'] == topic_id),
-                None
+                (t for t in course.get("topics", []) if t["id"] == topic_id),
+                None,
             )
             if topic:
                 self.mlflow_logger.log_dict(topic, f"found_topic_{topic_id}.json")
             else:
-                self.mlflow_logger.log_text("Topic not found", f"get_topic_status")
+                self.mlflow_logger.log_text("Topic not found", "get_topic_status")
             return topic
         finally:
             if run:
                 mlflow.end_run()
 
-    async def get_problem(self, course_id: str, topic_id: str, problem_id: str) -> Optional[Dict[str, Any]]:
+    async def get_problem(self, course_id: str, topic_id: str, problem_id: str) -> dict[str, Any] | None:
         """Get a problem from a topic"""
         run = None
         try:
@@ -297,17 +297,17 @@ class CourseLoader:
             self.mlflow_logger.log_param("problem_id", problem_id)
             topic = await self.get_topic(course_id, topic_id)
             if not topic:
-                self.mlflow_logger.log_text("Topic not found", f"get_problem_status")
+                self.mlflow_logger.log_text("Topic not found", "get_problem_status")
                 return None
 
             problem = next(
-                (p for p in topic.get('problems', []) if p['id'] == problem_id),
-                None
+                (p for p in topic.get("problems", []) if p["id"] == problem_id),
+                None,
             )
             if problem:
                 self.mlflow_logger.log_dict(problem, f"found_problem_{problem_id}.json")
             else:
-                self.mlflow_logger.log_text("Problem not found", f"get_problem_status")
+                self.mlflow_logger.log_text("Problem not found", "get_problem_status")
             return problem
         finally:
             if run:

@@ -1,23 +1,20 @@
 # app/main.py
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.routes import courses, problems
-import logging
-import subprocess
-import threading
-import time
-from contextlib import asynccontextmanager
-from app.services.mlflow_logger import MLFlowLogger
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
-    title="Code-Gym API"
+    title="Code-Gym API",
 )
 
 # CORS Configuration

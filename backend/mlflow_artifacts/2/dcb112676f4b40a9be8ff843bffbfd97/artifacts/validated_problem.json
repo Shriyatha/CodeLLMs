@@ -1,1 +1,0 @@
-{"id": "functions-medium-1", "title": "Recursive Factorial", "description": "Implement factorial using recursion.", "complexity": "medium", "starter_code": "# Your code here", "visible_test_cases": [{"input": "5", "expected_output": "120", "output": "120"}], "hidden_test_cases": [{"input": "0", "expected_output": "1", "output": "1"}]}

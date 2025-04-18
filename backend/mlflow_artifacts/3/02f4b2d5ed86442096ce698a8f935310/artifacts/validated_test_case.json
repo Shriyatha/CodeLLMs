@@ -1,1 +1,0 @@
-{"input": "hello world hello", "expected_output": "hello: 2\nworld: 1", "output": "hello: 2\nworld: 1"}

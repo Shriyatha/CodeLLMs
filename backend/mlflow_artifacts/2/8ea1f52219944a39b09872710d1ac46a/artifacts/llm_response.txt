@@ -1,3 +1,0 @@
-1. First hint: Use the input() function to get user's name as an argument and store it in a variable.
-2. Second hint: Use string concatenation or f-strings to combine "Hello, " with the name variable and print the resulting greeting.
-3. Third hint: You can also use the format() method of strings to achieve the same result. For example, you can write: print("Hello, {}".format(name))

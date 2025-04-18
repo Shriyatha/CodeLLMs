@@ -13,6 +13,7 @@ setup:
     # Pull required Docker images
     docker pull python:3.12-slim
     docker pull node:18-slim
+    ollama pull codegemma:7b
 
 run:
     # Start all services in the foreground

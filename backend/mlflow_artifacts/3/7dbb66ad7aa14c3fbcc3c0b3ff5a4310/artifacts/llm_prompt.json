@@ -1,1 +1,0 @@
-{"problem": "Define a function that returns the square of a number.", "code": "def square(n):\n    return n * n\n\nprint(square(int(input())))\n                        ", "current_level": 0}

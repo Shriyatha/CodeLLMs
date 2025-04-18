@@ -1,13 +1,14 @@
-from prefect import flow, task, get_run_logger, context
-from prefect.tasks import task_input_hash
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional, List
 import asyncio
-from app.services.llm_service import LLMService
-from app.services.code_execution import CodeExecutionService
-from app.services.mlflow_logger import MLFlowLogger
-import mlflow
 import os
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from prefect import context, flow, get_run_logger, task
+from prefect.tasks import task_input_hash
+
+from app.services.code_execution import CodeExecutionService
+from app.services.llm_service import LLMService
+from app.services.mlflow_logger import MLFlowLogger
 
 # Global storage for submission results with async-safe access
 submissions_storage = {}
@@ -16,14 +17,14 @@ storage_condition = asyncio.Condition()
 
 class SubmissionStorage:
     @staticmethod
-    async def create(submission_id: str, data: Dict[str, Any]) -> None:
+    async def create(submission_id: str, data: dict[str, Any]) -> None:
         async with storage_condition:
             async with storage_lock:
                 submissions_storage[submission_id] = data
             storage_condition.notify_all()
 
     @staticmethod
-    async def update(submission_id: str, updates: Dict[str, Any]) -> bool:
+    async def update(submission_id: str, updates: dict[str, Any]) -> bool:
         async with storage_condition:
             async with storage_lock:
                 if submission_id in submissions_storage:
@@ -33,12 +34,12 @@ class SubmissionStorage:
                 return False
 
     @staticmethod
-    async def get(submission_id: str) -> Optional[Dict[str, Any]]:
+    async def get(submission_id: str) -> dict[str, Any] | None:
         async with storage_lock:
             return submissions_storage.get(submission_id)
 
     @staticmethod
-    async def wait_for_result(submission_id: str, timeout: float = 30.0) -> Optional[Dict[str, Any]]:
+    async def wait_for_result(submission_id: str, timeout: float = 30.0) -> dict[str, Any] | None:
         """Wait for a submission result with timeout"""
         async with storage_condition:
             # Check if already completed
@@ -51,11 +52,11 @@ class SubmissionStorage:
             try:
                 await asyncio.wait_for(
                     storage_condition.wait_for(
-                        lambda: submissions_storage.get(submission_id, {}).get("status") in ["completed", "failed"]
+                        lambda: submissions_storage.get(submission_id, {}).get("status") in ["completed", "failed"],
                     ),
-                    timeout=timeout
+                    timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return None
 
             async with storage_lock:
@@ -81,20 +82,20 @@ async def validate_submission(code: str, language: str) -> bool:
 
 def custom_execute_tests_cache_key(context, parameters):
     # Create a cache key based on code, language, test_cases, and problem_id
-    return task_input_hash(context, {k: v for k, v in parameters.items() if k != 'execution_service'})
+    return task_input_hash(context, {k: v for k, v in parameters.items() if k != "execution_service"})
 
 @task(
     name="execute_tests",
     timeout_seconds=30,
-    cache_key_fn=custom_execute_tests_cache_key
+    cache_key_fn=custom_execute_tests_cache_key,
 )
 async def execute_tests(
     code: str,
     language: str,
-    test_cases: List[Dict[str, Any]],
+    test_cases: list[dict[str, Any]],
     problem_id: str,
-    execution_service: CodeExecutionService
-) -> List[Dict[str, Any]]:
+    execution_service: CodeExecutionService,
+) -> list[dict[str, Any]]:
     """Execute code against test cases"""
     logger = get_run_logger()
     mlflow_logger = MLFlowLogger() if context.get_run_context() and MLFlowLogger().active_run() else None
@@ -102,7 +103,7 @@ async def execute_tests(
     test_results = await execution_service.execute_code(
         code=code,
         language=language,
-        test_cases=test_cases
+        test_cases=test_cases,
     )
 
     if mlflow_logger:
@@ -110,7 +111,7 @@ async def execute_tests(
             await mlflow_logger.log_param("problem_id", problem_id)
             await mlflow_logger.log_param("test_case_count", len(test_cases))
 
-            passed_count = sum(1 for r in test_results if r.get('passed', False))
+            passed_count = sum(1 for r in test_results if r.get("passed", False))
             await mlflow_logger.log_metric("tests_passed", float(passed_count))
             await mlflow_logger.log_metric("tests_failed", float(len(test_results) - passed_count))
         except Exception as e:
@@ -120,9 +121,9 @@ async def execute_tests(
 
 @task(name="calculate_score")
 async def calculate_score(
-    test_results: List[Dict[str, Any]],
-    visible_count: int
-) -> Dict[str, Any]:
+    test_results: list[dict[str, Any]],
+    visible_count: int,
+) -> dict[str, Any]:
     """Calculate score based on test results"""
     logger = get_run_logger()
     mlflow_logger = MLFlowLogger() if context.get_run_context() and MLFlowLogger().active_run() else None
@@ -131,15 +132,15 @@ async def calculate_score(
         raise ValueError("No test results provided")
 
     total_tests = len(test_results)
-    passed_tests = sum(1 for r in test_results if r.get('passed', False))
+    passed_tests = sum(1 for r in test_results if r.get("passed", False))
 
     # Calculate score with different weights for visible and hidden tests
-    hidden_passed = sum(1 for r in test_results[visible_count:] if r.get('passed', False))
+    hidden_passed = sum(1 for r in test_results[visible_count:] if r.get("passed", False))
     hidden_total = total_tests - visible_count
 
     if visible_count > 0:
         visible_weight = 0.7
-        visible_score = visible_weight * (sum(1 for r in test_results[:visible_count] if r.get('passed', False)) / visible_count)
+        visible_score = visible_weight * (sum(1 for r in test_results[:visible_count] if r.get("passed", False)) / visible_count)
     else:
         visible_score = 0.0
         visible_weight = 0.0
@@ -163,15 +164,15 @@ async def calculate_score(
         "score": round(score * 100, 2),
         "passed": passed_tests == total_tests,
         "passed_tests": passed_tests,
-        "total_tests": total_tests
+        "total_tests": total_tests,
     }
 
 @task(name="generate_feedback", cache_key_fn=task_input_hash, cache_expiration=timedelta(hours=1))
 async def generate_feedback(
     code: str,
-    test_results: List[Dict[str, Any]],
+    test_results: list[dict[str, Any]],
     problem_description: str,
-    llm_service: LLMService
+    llm_service: LLMService,
 ) -> str:
     """Generate accurate feedback using LLM"""
     logger = get_run_logger()
@@ -183,7 +184,7 @@ async def generate_feedback(
 
     try:
         # Count passed/failed tests
-        passed_count = sum(1 for r in test_results if r.get('passed', False))
+        passed_count = sum(1 for r in test_results if r.get("passed", False))
         total_tests = len(test_results)
 
         if passed_count == total_tests:
@@ -192,12 +193,12 @@ async def generate_feedback(
         # Get errors from failed tests
         errors = []
         for r in test_results:
-            if not r.get('passed', False):
+            if not r.get("passed", False):
                 error_info = {
-                    'input': r.get('input'),
-                    'expected': r.get('expected'),
-                    'output': r.get('output'),
-                    'error': r.get('error')
+                    "input": r.get("input"),
+                    "expected": r.get("expected"),
+                    "output": r.get("output"),
+                    "error": r.get("error"),
                 }
                 errors.append(error_info)
 
@@ -207,15 +208,15 @@ async def generate_feedback(
                 error=errors,
                 code=code,
                 problem=problem_description,
-                mlflow_logger=mlflow_logger  # Pass the logger
+                mlflow_logger=mlflow_logger,  # Pass the logger
             )
-            return feedback_result.get('explanation',
+            return feedback_result.get("explanation",
                 f"Failed {len(errors)}/{total_tests} test cases. Please review your code.")
 
         return f"Passed {passed_count}/{total_tests} test cases."
 
     except Exception as e:
-        logger.error(f"Feedback generation failed: {str(e)}")
+        logger.error(f"Feedback generation failed: {e!s}")
         return "Unable to generate detailed feedback due to an error."
 
 @flow(name="grade_submission_workflow")
@@ -223,10 +224,10 @@ async def grade_submission_workflow(
     submission_id: str,
     code: str,
     language: str,
-    problem: Dict[str, Any],
+    problem: dict[str, Any],
     execution_service: CodeExecutionService,
-    llm_service: LLMService
-) -> Dict[str, Any]:
+    llm_service: LLMService,
+) -> dict[str, Any]:
     """Execute grading with accurate results"""
     logger = get_run_logger()
     mlflow_logger = MLFlowLogger()
@@ -237,12 +238,12 @@ async def grade_submission_workflow(
             # Initialize storage
             await SubmissionStorage.create(submission_id, {
                 "status": "started",
-                "started_at": datetime.now(timezone.utc).isoformat()
+                "started_at": datetime.now(UTC).isoformat(),
             })
 
             # Prepare test cases
-            visible_test_cases = problem.get('visible_test_cases', [])
-            hidden_test_cases = problem.get('hidden_test_cases', [])
+            visible_test_cases = problem.get("visible_test_cases", [])
+            hidden_test_cases = problem.get("hidden_test_cases", [])
             test_cases = visible_test_cases + hidden_test_cases
             visible_count = len(visible_test_cases)
             problem_id = problem.get("id", "unknown")
@@ -270,25 +271,25 @@ async def grade_submission_workflow(
                 language=language,
                 test_cases=test_cases,
                 problem_id=problem_id,
-                execution_service=execution_service
+                execution_service=execution_service,
             )
 
             # Calculate score
             score_result = await calculate_score(
                 test_results=test_results,
-                visible_count=visible_count
+                visible_count=visible_count,
             )
 
             # Generate accurate feedback
             feedback = await generate_feedback(
                 code=code,
                 test_results=test_results,
-                problem_description=problem.get('description', ''),
-                llm_service=llm_service
+                problem_description=problem.get("description", ""),
+                llm_service=llm_service,
             )
 
             # Determine overall status
-            passed_all = all(r.get('passed', False) for r in test_results)
+            passed_all = all(r.get("passed", False) for r in test_results)
             status = "completed" if passed_all else "partially_completed"
 
             # Prepare final result
@@ -296,19 +297,19 @@ async def grade_submission_workflow(
                 "passed": passed_all,
                 "score": score_result["score"],
                 "feedback": feedback,
-                "execution_time": datetime.now(timezone.utc).isoformat(),
+                "execution_time": datetime.now(UTC).isoformat(),
                 "test_results": test_results,
                 "problem_id": problem_id,
                 "course": course_id,
-                "topic": topic_id
+                "topic": topic_id,
             }
 
             # Store results
             await SubmissionStorage.update(submission_id, {
                 "status": status,
                 "result": result,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-                "completed_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": datetime.now(UTC).isoformat(),
+                "completed_at": datetime.now(UTC).isoformat(),
             })
 
             # Log final metrics and artifacts
@@ -330,18 +331,18 @@ async def grade_submission_workflow(
             return result
 
     except Exception as e:
-        logger.error(f"Grading failed for {submission_id}: {str(e)}", exc_info=True)
+        logger.error(f"Grading failed for {submission_id}: {e!s}", exc_info=True)
         error_result = {
             "error": str(e),
             "passed": False,
             "score": 0,
-            "feedback": f"Grading failed: {str(e)}",
+            "feedback": f"Grading failed: {e!s}",
             "test_results": [],
-            "problem_id": problem.get("id", "unknown")
+            "problem_id": problem.get("id", "unknown"),
         }
         await SubmissionStorage.update(submission_id, {
             "status": "failed",
             "result": error_result,
-            "error": str(e)
+            "error": str(e),
         })
         return error_result
