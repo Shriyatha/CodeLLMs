@@ -1,10 +1,16 @@
-# Welcome to My Project Documentation
+# Code Gym Project
 
-This documentation provides details about the project, its architecture, functionalities, and development experience.
-## Overview
-The **CodeLLMs** enables AI-powered **CODING** using **FastAPI** It processes queries efficiently, providing structured insights and visualizations.
+Welcome to the **Code Gym** project! This platform helps students self-learn programming languages such as Python and JavaScript. The system allows students to select a course, pick a topic, and solve problems with varying complexities. Code submissions are evaluated automatically using Docker containers, and students receive feedback with detailed error explanations and hints.
 
-## Sections
-- **Project Architecture:** Visual representation using Mermaid diagrams.
-- **Functionality & Usage:** Explanation of project features and how to run it.
-- **Project Experience:** Challenges faced, lessons learned, and key takeaways.
+## Features
+- **Courses**: Python and JavaScript
+- **Topics**: 5 topics per course, with problems categorized by difficulty (Easy, Medium, Hard)
+- **Validation**: Code is validated against visible and invisible test cases, ensuring comprehensive feedback.
+- **Code LLMs**: A range of Code LLM features such as progressive hints, error explanations, and code reviews.
+
+---
+
+## Table of Contents
+- [Functionalities](functionalities.md)
+- [Architecture](architecture.md)
+- [Project Experience](experience.md)

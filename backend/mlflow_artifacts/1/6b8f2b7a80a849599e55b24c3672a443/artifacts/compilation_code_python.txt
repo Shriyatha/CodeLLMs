@@ -1,7 +1,0 @@
-# Implement recursive factorial
-def function(n):
-   if n/0==1:
-     return 1
-
-print(function(1))
-                        

@@ -5,12 +5,14 @@ set shell := ["bash", "-c"]
 set dotenv-load
 
 setup:
-    # Create virtual environment and install dependencies
     uv venv .venv_test
     . .venv_test/bin/activate && uv pip install -r requirements.txt
     uv pip install mlflow
-    
-    # Pull required Docker images
+
+    # Open Docker Desktop using a portable script
+    sh -c 'case "$(uname)" in Darwin) open -a "Docker" ;; Linux) systemctl --user start docker-desktop || snap run docker-desktop ;; MINGW*|CYGWIN*|MSYS*|Windows_NT) powershell.exe Start-Process "Docker Desktop" ;; esac'
+
+    # Pull Docker and ollama images
     docker pull python:3.12-slim
     docker pull node:18-slim
     ollama pull codegemma:7b
