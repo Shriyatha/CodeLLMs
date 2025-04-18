@@ -4,7 +4,7 @@ The **Code Gym** system is a modular, scalable, and interactive platform for stu
 
 ## Key Components
 
-### 1. **Frontend (React)**
+### 1. **Frontend (Flask)**
 - **User-friendly Interface** for course selection, problem-solving, and real-time feedback.
   
 ### 2. **Backend (FastAPI)**
