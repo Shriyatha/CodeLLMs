@@ -1,3 +1,0 @@
-1. Consider using a `for` loop to iterate over the input.
-2. Think about how you can use an if statement to check if each element is even and keep a count.
-3. You might need to create a variable to store the number of even elements in the list.

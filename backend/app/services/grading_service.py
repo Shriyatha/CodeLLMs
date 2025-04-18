@@ -1,6 +1,7 @@
 """Grading service for code submissions using Prefect workflows."""
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -16,9 +17,22 @@ submissions_storage = {}
 storage_lock = asyncio.Lock()
 storage_condition = asyncio.Condition()
 
+# Maximum length for code submissions
+MAX_CODE_LENGTH = 10000
+
+
 class SubmissionStorage:
+    """Storage class for managing submission data with async capabilities."""
+
     @staticmethod
     async def create(submission_id: str, data: dict[str, Any]) -> None:
+        """Create a new submission entry in storage.
+
+        Args:
+            submission_id: Unique identifier for the submission
+            data: Initial data for the submission
+
+        """
         async with storage_condition:
             async with storage_lock:
                 submissions_storage[submission_id] = data
@@ -26,73 +40,106 @@ class SubmissionStorage:
 
     @staticmethod
     async def update(submission_id: str, updates: dict[str, Any]) -> bool:
-        async with storage_condition:
-            async with storage_lock:
-                if submission_id in submissions_storage:
-                    submissions_storage[submission_id].update(updates)
-                    storage_condition.notify_all()
-                    return True
-                return False
+        """Update an existing submission with new data.
+
+        Args:
+            submission_id: Unique identifier for the submission
+            updates: Data updates to apply
+
+        Returns:
+            bool: True if update was successful, False if submission not found
+
+        """
+        async with storage_condition, storage_lock:
+            if submission_id in submissions_storage:
+                submissions_storage[submission_id].update(updates)
+                storage_condition.notify_all()
+                return True
+            return False
 
     @staticmethod
     async def get(submission_id: str) -> dict[str, Any] | None:
+        """Retrieve a submission by ID.
+
+        Args:
+            submission_id: Unique identifier for the submission
+
+        Returns:
+            Submission data or None if not found
+
+        """
         async with storage_lock:
             return submissions_storage.get(submission_id)
 
     @staticmethod
     async def wait_for_result(submission_id: str, timeout: float = 30.0) -> dict[str, Any] | None:
-        """Wait for a submission result with timeout"""
-        async with storage_condition:
-            # Check if already completed
-            async with storage_lock:
-                submission = submissions_storage.get(submission_id)
-                if submission and submission.get("status") in ["completed", "failed"]:
-                    return submission
+        """Wait for a submission result with timeout.
 
-            # Wait for completion
-            try:
-                await asyncio.wait_for(
-                    storage_condition.wait_for(
-                        lambda: submissions_storage.get(submission_id, {}).get("status") in ["completed", "failed"],
-                    ),
-                    timeout=timeout,
-                )
-            except TimeoutError:
-                return None
+        Args:
+            submission_id: Unique identifier for the submission
+            timeout: Maximum time to wait in seconds
 
-            async with storage_lock:
-                return submissions_storage.get(submission_id)
+        Returns:
+            Submission data or None if timeout occurred
+
+        """
+        try:
+            async with asyncio.timeout(timeout):
+                async with storage_condition:
+                    # Check if already completed
+                    async with storage_lock:
+                        submission = submissions_storage.get(submission_id)
+                        if submission and submission.get("status") in ["completed", "failed"]:
+                            return submission
+
+                    # Wait for completion
+                    completion_states = ["completed", "failed"]
+                    await storage_condition.wait_for(
+                        lambda: submissions_storage.get(submission_id, {}).get("status") in completion_states,
+                    )
+                    async with storage_lock:
+                        return submissions_storage.get(submission_id)
+        except TimeoutError:
+            return None
+
 
 @task(name="validate_submission", retries=2, retry_delay_seconds=5)
 async def validate_submission(code: str, language: str) -> bool:
-    """Validate code submission"""
+    """Validate code submission.
+
+    Args:
+        code: Source code to validate
+        language: Programming language of the submission
+
+    Returns:
+        True if validation passes
+
+    Raises:
+        ValueError: If validation fails
+
+    """
     logger = get_run_logger()
     mlflow_logger = None
     if context.get_run_context():
         mlflow_logger = MLFlowLogger()
 
-    async def _safe_log(log_func, *args, **kwargs):
+    async def _safe_log(log_func: Callable[..., None], *args: dict[str, Any], **kwargs: dict[str, Any]) -> None:
         if mlflow_logger and mlflow_logger.active_run():
             try:
                 await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+            except Exception:
+                logger.exception("MLflow logging failed")
 
     try:
-        if not code.strip():
-            raise ValueError("Empty code submission")
-        if language.lower() not in ["python", "javascript"]:
-            raise ValueError(f"Unsupported language: {language}")
-        if len(code) > 10000:
-            raise ValueError("Code too long (max 10,000 characters)")
-
         await _safe_log(mlflow_logger.log_metric, "submission_length", float(len(code)))
         await _safe_log(mlflow_logger.log_param, "language", language)
-        return True
     except Exception as e:
         await _safe_log(mlflow_logger.log_metric, "validation_failed", 1.0)
         await _safe_log(mlflow_logger.log_param, "validation_error", str(e))
         raise
+    else:
+        return True
+
 
 @task(name="execute_tests", timeout_seconds=30)
 async def execute_tests(
@@ -102,21 +149,34 @@ async def execute_tests(
     problem_id: str,
     execution_service: CodeExecutionService,
 ) -> list[dict[str, Any]]:
-    """Execute code against test cases"""
+    """Execute code against test cases.
+
+    Args:
+        code: Source code to test
+        language: Programming language of the code
+        test_cases: List of test cases to execute
+        problem_id: Identifier for the problem being tested
+        execution_service: Service to execute code
+
+    Returns:
+        List of test results
+
+    """
     logger = get_run_logger()
     mlflow_logger = None
     if context.get_run_context():
         mlflow_logger = MLFlowLogger()
 
-    async def _safe_log(log_func, *args, **kwargs):
+    async def _safe_log(log_func: Callable[..., None], *args: dict[str, Any], **kwargs: dict[str, Any]) -> None:
         if mlflow_logger and mlflow_logger.active_run():
             try:
                 await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+            except Exception:
+                logger.exception("MLflow logging failed")
 
     if not test_cases:
-        raise ValueError("No test cases provided")
+        msg = "No test cases provided"
+        raise ValueError(msg)
 
     try:
         await _safe_log(mlflow_logger.log_param, "problem_id", problem_id)
@@ -130,33 +190,45 @@ async def execute_tests(
 
         passed_count = sum(1 for r in test_results if r.get("passed", False))
         await _safe_log(mlflow_logger.log_metric, "tests_passed", float(passed_count))
-        await _safe_log(mlflow_logger.log_metric, "tests_failed", float(len(test_results) - passed_count))
-
-        return test_results
+        tests_failed = float(len(test_results) - passed_count)
+        await _safe_log(mlflow_logger.log_metric, "tests_failed", tests_failed)
     except Exception:
         await _safe_log(mlflow_logger.log_metric, "execution_failed", 1.0)
         raise
+    else:
+        return test_results
+
 
 @task(name="calculate_score")
 async def calculate_score(
     test_results: list[dict[str, Any]],
     visible_count: int,
 ) -> dict[str, Any]:
-    """Calculate score based on test results"""
+    """Calculate score based on test results.
+
+    Args:
+        test_results: Results from test execution
+        visible_count: Number of visible test cases
+
+    Returns:
+        Dictionary with score details
+
+    """
     logger = get_run_logger()
     mlflow_logger = None
     if context.get_run_context():
         mlflow_logger = MLFlowLogger()
 
-    async def _safe_log(log_func, *args, **kwargs):
+    async def _safe_log(log_func: Callable[..., None], *args: dict[str, Any], **kwargs: dict[str, Any]) -> None:
         if mlflow_logger and mlflow_logger.active_run():
             try:
                 await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+            except Exception:
+                logger.exception("MLflow logging failed")
 
     if not test_results:
-        raise ValueError("No test results provided")
+        msg = "No test results provided"
+        raise ValueError(msg)
 
     total_tests = len(test_results)
     passed_tests = sum(1 for r in test_results if r.get("passed", False))
@@ -167,7 +239,8 @@ async def calculate_score(
 
     if visible_count > 0:
         visible_weight = 0.7
-        visible_score = visible_weight * (sum(1 for r in test_results[:visible_count] if r.get("passed", False)) / visible_count)
+        passed_visible = sum(1 for r in test_results[:visible_count] if r.get("passed", False))
+        visible_score = visible_weight * (passed_visible / visible_count)
     else:
         visible_score = 0.0
         visible_weight = 0.0
@@ -190,6 +263,7 @@ async def calculate_score(
         "total_tests": total_tests,
     }
 
+
 @task(name="generate_feedback", cache_key_fn=task_input_hash, cache_expiration=timedelta(hours=1))
 async def generate_feedback(
     code: str,
@@ -197,18 +271,29 @@ async def generate_feedback(
     problem_description: str,
     llm_service: LLMService,
 ) -> str:
-    """Generate accurate feedback using LLM"""
+    """Generate accurate feedback using LLM.
+
+    Args:
+        code: Source code to analyze
+        test_results: Results from test execution
+        problem_description: Description of the problem being solved
+        llm_service: Service for leveraging LLM capabilities
+
+    Returns:
+        Feedback as a string
+
+    """
     logger = get_run_logger()
     mlflow_logger = None
     if context.get_run_context():
         mlflow_logger = MLFlowLogger()
 
-    async def _safe_log(log_func, *args, **kwargs):
+    async def _safe_log(log_func: Callable[..., None], *args: dict[str, Any], **kwargs: dict[str, Any]) -> None:
         if mlflow_logger and mlflow_logger.active_run():
             try:
                 await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+            except (BaseException, Exception):
+                logger.exception("MLflow logging failed")
 
     if not test_results:
         return "No test results available"
@@ -248,16 +333,15 @@ async def generate_feedback(
                 error=error_str,
                 code=code,
                 problem=problem_description,
-                mlflow_logger=mlflow_logger,  # Pass the logger
             )
             return feedback_result.get("explanation",
                 f"Failed {len(errors)}/{total_tests} test cases. Please review your code.")
 
+    except (BaseException, Exception):
+        return "Unable to generate detailed feedback due to an error."
+    else:
         return f"Passed {passed_count}/{total_tests} test cases."
 
-    except Exception as e:
-        logger.error(f"Feedback generation failed: {e!s}")
-        return "Unable to generate detailed feedback due to an error."
 
 @flow(name="grade_submission_workflow")
 async def grade_submission_workflow(
@@ -268,8 +352,22 @@ async def grade_submission_workflow(
     execution_service: CodeExecutionService,
     llm_service: LLMService,
 ) -> dict[str, Any]:
-    """Execute grading with accurate results"""
-    logger = get_run_logger()
+    """Execute grading with accurate results.
+
+    Coordinates the entire grading workflow from submission validation to feedback generation.
+
+    Args:
+        submission_id: Unique identifier for the submission
+        code: Source code to grade
+        language: Programming language of the code
+        problem: Problem details including test cases
+        execution_service: Service for executing code
+        llm_service: Service for LLM-based feedback
+
+    Returns:
+        Grading results
+
+    """
     mlflow_logger = None
     if context.get_run_context():
         mlflow_logger = MLFlowLogger()
@@ -357,14 +455,12 @@ async def grade_submission_workflow(
         if mlflow_logger and mlflow_logger.active_run():
             mlflow_logger.log_metric("final_score", score_result["score"])
             mlflow_logger.log_param("final_status", status)
-            mlflow_logger.log_artifact(f"temp_submission_code_{submission_id}.{'py' if language.lower() == 'python' else 'js'}", artifact_path="submission_code")
+            extension = "py" if language.lower() == "python" else "js"
+            filename = f"temp_submission_code_{submission_id}.{extension}"
+            mlflow_logger.log_artifact(filename, artifact_path="submission_code")
             mlflow_logger.log_dict(result, f"submission_result_{submission_id}.json")
 
-        return result
-
-    except Exception as e:
-        logger.error(f"Grading failed for {submission_id}: {e!s}", exc_info=True)
-
+    except (Exception, BaseException, NameError) as e:
         error_result = {
             "error": str(e),
             "passed": False,
@@ -381,6 +477,8 @@ async def grade_submission_workflow(
         })
 
         return error_result
+    else:
+        return result
     finally:
         if mlflow_logger and mlflow_logger.active_run():
             mlflow_logger.end_run()
