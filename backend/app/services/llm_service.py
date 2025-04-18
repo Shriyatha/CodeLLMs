@@ -207,140 +207,97 @@ class LLMService:
         language: str = "python",
     ) -> dict[str, Any]:
         """Generate structured error explanation with actionable fixes."""
-        run_name = f"ExplainError_{language}"
-        system_message = (
-            "You are a patient programming tutor explaining errors. Return valid JSON."
+        prompt = (
+            "You are a helpful and knowledgeable programming tutor.\n\n"
+            "Your task is to carefully analyze a code snippet and its associated "
+            "error message. Then, explain the error to a beginner student and "
+            "suggest actionable ways to fix it.\n\n"
+            "---\n"
+            f"Programming Language: {language}\n\n"
+            f"Problem Description:\n{problem}\n\n"
+            f"Error Message:\n{error}\n\n"
+            f"Problematic Code:\n{code}\n\n"
+            "Analyze this error and provide:\n\n"
+            "1. **Error Type Classification**:\n"
+            '   Classify the error into a specific type (e.g., "IndexError", '
+            '"TypeError", "SyntaxError"). Identify the exact issue based on the '
+            "error message.\n"
+            '   - Example: If the error message is "IndexError: list index out of '
+            'range", classify it as "IndexError".\n\n'
+            "2. **Clear Explanation of Why it Occurred**:\n"
+            "   Explain in plain language why the error happened. Focus on the root "
+            "cause and avoid technical jargon.\n"
+            '   - Example: For an "IndexError", the explanation might be:\n'
+            '     _"The error occurred because you\'re trying to access an index in '
+            "the list that doesn't exist. Lists in Python are zero-indexed, meaning "
+            "the first item in the list is at index 0. You're trying to access index "
+            '5, but the list only has 3 elements, so index 5 is out of range."_ \n\n'
+            "3. **Suggested Fixes** (2-3 bullet points):\n"
+            "   Provide 2 to 3 actionable suggestions that will help the student fix "
+            "the error. Do not provide the exact code but suggest logical steps to "
+            "fix it.\n"
+            '   - Example:\n'
+            '     - "Ensure the index is within the bounds of the list by checking '
+            'its length using `len()`. For example, `if index < len(list):`."\n'
+            '     - "Use a `try-except` block to handle situations where an invalid '
+            'index might be accessed."\n'
+            '     - "Double-check the loop ranges and ensure that the index being '
+            'accessed is valid for the length of the list."\n\n'
+            "4. **Relevant Line Number if Apparent**:\n"
+            "   Identify the line number where the error occurred, if possible. If "
+            "the error message or stack trace gives a specific line, point it out. "
+            "If the line number is not clear, return `null`.\n"
+            '   - Example: If the code `my_list[5]` is on line 8 and causes an error, '
+            'output `"relevant_line": 8`.\n\n'
+            "5. **Common Mistakes That Lead to This Error**:\n"
+            "   List common mistakes that often lead to the error in question. These "
+            "could include misunderstandings like forgetting that list indices start "
+            "at 0, or not checking if a value exists before trying to access it.\n"
+            '   - Example for an `IndexError`:\n'
+            '     - "Forgetting that list indices start at 0, not 1."\n'
+            '     - "Trying to access an index that exceeds the list\'s length."\n'
+            '     - "Using hardcoded index values instead of dynamically checking the '
+            'valid range."\n\n'
+            "⚠ Do NOT include extra commentary, code, or preamble.\n\n"
+            "Format your response as JSON with these keys:\n"
+            "{\n"
+            '    "error_type": "",\n'
+            '    "explanation": "",\n'
+            '    "suggested_fixes": [],\n'
+            '    "relevant_line": null,\n'
+            '    "common_mistakes": []\n'
+            "}"
         )
 
-        if not self.mlflow_logger:
+        try:
+            response = await self._generate(
+                prompt,
+                system_message=f"Explain {language} errors in simple terms. Return valid JSON only.",
+                temperature=0.3,  # Keep responses focused
+            )
+
+            # Clean response by removing markdown code blocks if present
+            clean_response = response.replace("```json", "").replace("```", "").strip()
+
+            result = json.loads(clean_response)
+            return {
+                "error_type": result.get("error_type", self._extract_error_type(error)),
+                "explanation": result.get("explanation", "No explanation provided"),
+                "suggested_fixes": result.get("suggested_fixes", []),
+                "relevant_line": result.get("relevant_line", self._find_relevant_line(error)),
+                "common_mistakes": result.get("common_mistakes", []),
+            }
+
+        except json.JSONDecodeError:
+            return self._parse_unstructured_error_response(response, error)
+        except (BaseException, Exception) as e:
             return {
                 "error_type": self._extract_error_type(error),
-                "explanation": "MLflow logging is not available.",
-                "suggested_fixes": [],
+                "explanation": f"Error occurred during analysis: {e!s}",
+                "suggested_fixes": ["Review the error message carefully"],
                 "relevant_line": self._find_relevant_line(error),
                 "common_mistakes": [],
             }
-
-        with self.mlflow_logger.start_run(run_name=run_name):
-            self.mlflow_logger.log_param("language", language)
-            self.mlflow_logger.log_param("problem", problem)
-            self.mlflow_logger.log_text(code, "problematic_code.txt")
-            self.mlflow_logger.log_text(error, "error_message.txt")
-
-            prompt = (
-                "You are a helpful and knowledgeable programming tutor.\n\n"
-                "Your task is to carefully analyze a code snippet and its associated "
-                "error message. Then, explain the error to a beginner student and "
-                "suggest actionable ways to fix it.\n\n"
-                "---\n"
-                f"Programming Language: {language}\n\n"
-                f"Problem Description:\n{problem}\n\n"
-                f"Error Message:\n{error}\n\n"
-                f"Problematic Code:\n{code}\n\n"
-                "Analyze this error and provide:\n\n"
-                "1. **Error Type Classification**:\n"
-                '   Classify the error into a specific type (e.g., "IndexError", '
-                '"TypeError", "SyntaxError"). Identify the exact issue based on the '
-                "error message.\n"
-                '   - Example: If the error message is "IndexError: list index out of '
-                'range", classify it as "IndexError".\n\n'
-                "2. **Clear Explanation of Why it Occurred**:\n"
-                "   Explain in plain language why the error happened. Focus on the root "
-                "cause and avoid technical jargon.\n"
-                '   - Example: For an "IndexError", the explanation might be:\n'
-                '     _"The error occurred because you\'re trying to access an index in '
-                "the list that doesn't exist. Lists in Python are zero-indexed, meaning "
-                "the first item in the list is at index 0. You're trying to access index "
-                '5, but the list only has 3 elements, so index 5 is out of range."_ \n\n'
-                "3. **Suggested Fixes** (2-3 bullet points):\n"
-                "   Provide 2 to 3 actionable suggestions that will help the student fix "
-                "the error. Do not provide the exact code but suggest logical steps to "
-                "fix it.\n"
-                '   - Example:\n'
-                '     - "Ensure the index is within the bounds of the list by checking '
-                'its length using `len()`. For example, `if index < len(list):`."\n'
-                '     - "Use a `try-except` block to handle situations where an invalid '
-                'index might be accessed."\n'
-                '     - "Double-check the loop ranges and ensure that the index being '
-                'accessed is valid for the length of the list."\n\n'
-                "4. **Relevant Line Number if Apparent**:\n"
-                "   Identify the line number where the error occurred, if possible. If "
-                "the error message or stack trace gives a specific line, point it out. "
-                "If the line number is not clear, return `null`.\n"
-                '   - Example: If the code `my_list[5]` is on line 8 and causes an error, '
-                'output `"relevant_line": 8`.\n\n'
-                "5. **Common Mistakes That Lead to This Error**:\n"
-                "   List common mistakes that often lead to the error in question. These "
-                "could include misunderstandings like forgetting that list indices start "
-                "at 0, or not checking if a value exists before trying to access it.\n"
-                '   - Example for an `IndexError`:\n'
-                '     - "Forgetting that list indices start at 0, not 1."\n'
-                '     - "Trying to access an index that exceeds the list\'s length."\n'
-                '     - "Using hardcoded index values instead of dynamically checking the '
-                'valid range."\n\n'
-                "⚠ Do NOT include extra commentary, code, or preamble.\n\n"
-                "Format your response as JSON with these keys:\n"
-                "{\n"
-                '    "error_type": "",\n'
-                '    "explanation": "",\n'
-                '    "suggested_fixes": [],\n'
-                '    "relevant_line": null,\n'
-                '    "common_mistakes": []\n'
-                "}"
-            )
-
-            try:
-                response = await self._generate(
-                    prompt, system_message=system_message,
-                )
-                self.mlflow_logger.log_dict(
-                    {"prompt": prompt, "system_message": system_message},
-                    "llm_prompt.json",
-                )
-                self.mlflow_logger.log_text(response, "llm_response.txt")
-                self.mlflow_logger.set_tag("llm_interaction_status", "success")
-
-                try:
-                    result = json.loads(response)
-                    explanation_result = {
-                        "error_type": result.get(
-                            "error_type", self._extract_error_type(error),
-                        ),
-                        "explanation": result.get("explanation", ""),
-                        "suggested_fixes": result.get("suggested_fixes", []),
-                        "relevant_line": result.get(
-                            "relevant_line", self._find_relevant_line(error),
-                        ),
-                        "common_mistakes": result.get("common_mistakes", []),
-                    }
-                    self.mlflow_logger.log_dict(explanation_result, "error.json")
-
-
-                except json.JSONDecodeError as json_err:
-                    un_result = self._parse_unstructured_error_response(response, error)
-                    self.mlflow_logger.log_dict(
-                        un_result, "unstructured_error_explanation.json",
-                    )
-                    self.mlflow_logger.log_text(f"JSONError:{json_err}", "json.txt")
-                    return un_result
-                else:
-                    return explanation_result
-
-            except (IndentationError, IndexError, BaseException) as e:
-                error_msg = f"Error explanation failed: {e!s}"
-                self.mlflow_logger.log_text(error_msg, "error_explanation.txt")
-                self.mlflow_logger.set_tag("llm_interaction_status", "failure")
-                explanation_result = {
-                    "error_type": self._extract_error_type(error),
-                    "explanation": f"Error occurred during explanation: {e!s}",
-                    "suggested_fixes": ["Review the error message and code"],
-                    "relevant_line": self._find_relevant_line(error),
-                    "common_mistakes": [],
-                }
-                self.mlflow_logger.log_dict(
-                    explanation_result, "error_explanation_failure_details.json",
-                )
-                return explanation_result
 
     async def analyze_optimizations(
         self, code: str, problem: str, language: str,
@@ -692,8 +649,7 @@ class LLMService:
                 ),
             )
             return self._parse_numbered_list(response)
-        except Exception:
-            logger.exception("Step generation failed")
+        except (BaseException, Exception):
             return [
                 "Read and understand the problem statement carefully.",
                 "Identify the type of input and expected output.",
@@ -980,25 +936,13 @@ class LLMService:
         return points if points else [f"No specific {section.lower()} suggestions"]
 
     def _parse_numbered_list(self, text: str) -> list[str]:
-        """Parse numbered steps from response with better validation."""
-        steps: list[str] = []
+        """Split the text into lines. Then, strip leading and trailing whitespace from each line."""
+        lines: list[str] = []
         for raw_line in text.split("\n"):
             line = raw_line.strip()
-            if not line:
-                continue
-
-            # Match numbered items more flexibly
-            match = re.match(r"^\d+[\.\)]\s*(.+)$", line)
-            if match:
-                step = match.group(1)
-                # Skip steps that are too short or just headers
-                if len(step.split()) > self.MIN_POINT_WORDS:
-                    steps.append(step)
-            elif steps and len(line.split()) > self.MIN_CONTINUATION_WORDS:
-                # Continuation lines
-                steps[-1] += " " + line
-
-        return steps[:self.MAX_STEPS]  # Return max 5 quality steps
+            if line:  # Only add non-empty lines
+                lines.append(line)
+        return lines
 
     def _extract_pseudocode_block(self, response: str) -> str:
         """Extract the pseudocode section with better pattern matching."""

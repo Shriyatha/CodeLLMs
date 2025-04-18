@@ -1,0 +1,1 @@
+{"input": "a a a b b", "expected_output": "a: 3\nb: 2", "output": "a: 3\nb: 2"}

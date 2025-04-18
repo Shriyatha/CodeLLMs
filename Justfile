@@ -14,10 +14,13 @@ setup:
     docker pull python:3.12-slim
     docker pull node:18-slim
     ollama pull codegemma:7b
+    ollama pull phi
 
 run:
     # Start all services in the foreground
     . .venv_test/bin/activate && \
+    ollama pull codegemma:7b & \
+    ollama pull phi & \
     cd backend && python3 start_mlflow.py & \
     cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --timeout-keep-alive 300 & \
     cd frontend && python3 app.py & \

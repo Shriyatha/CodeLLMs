@@ -591,57 +591,60 @@ async def explain_errors(
     llm: Annotated[LLMService, Depends(get_llm_service)],
     loader: Annotated[CourseLoader, Depends(get_course_loader)],
 ) -> ErrorExplanation:
-    """Explain errors in user's code with AI assistance.
-
-    Args:
-        course_id: The course identifier.
-        topic_id: The topic identifier.
-        problem_id: The problem identifier.
-        submission: Code submission to explain errors for.
-        execution_service: Code execution service instance.
-        llm: LLM service for error analysis.
-        loader: Course loader service instance.
-
-    Returns:
-        ErrorExplanation with detailed error analysis.
-
-    Raises:
-        HTTPException: If error analysis fails or other errors occur.
-
-    """
+    """Explain errors in user's code with AI assistance."""
     try:
+        # Validate problem exists and submission is valid
         problem = await validate_problem_exists(
             course_id, topic_id, problem_id, loader,
         )
         await validate_code_submission(submission.code, submission.language)
 
-        # First try compilation
-        compile_result = await execution_service.compile_code(
+        # Get all test cases
+        test_cases = problem.get("visible_test_cases", []) + problem.get("hidden_test_cases", [])
+        if not test_cases:
+            logger.error("No test cases found for problem: %s", problem_id)
+            raise_bad_request("No test cases provided")
+
+        # Execute code with test cases
+        execution_results = await execution_service.execute_code(
             code=submission.code,
             language=submission.language,
+            test_cases=test_cases,
         )
 
-        if not compile_result["success"]:
-            error = compile_result["error"]
-        else:
-            # If compilation succeeds, try execution
-            visible_test_cases = problem.get("visible_test_cases", [])
-            test_case = visible_test_cases[0] if visible_test_cases else {}
-            exec_result = await execution_service.execute_code(
-                code=submission.code,
-                language=submission.language,
-                test_cases=[test_case],
-            )
-            error = next((r["error"] for r in exec_result if r.get("error")), None)
+        # Find the first error in execution results
+        error = None
+        for result in execution_results:
+            output = result.get("output", "")
+            if "Traceback" in output:
+                error = output
+                break
+            if result.get("error"):
+                error = result["error"]
+                break
 
         if not error:
             raise_bad_request("No errors found in the code")
 
-        explanation = await llm.explain_errors(
-            error=error,
-            code=submission.code,
-            problem=problem["description"],
-        )
+        try:
+            # Get error explanation from LLM
+            explanation = await llm.explain_errors(
+                error=error,
+                code=submission.code,
+                problem=problem["description"],
+            )
+        except AttributeError as e:
+            logger.error("LLM service configuration error: %s", str(e))
+            raise HTTPException(
+                status_code=500,
+                detail="LLM service configuration error",
+            ) from e
+        except Exception as e:
+            logger.error("Failed to get error explanation from LLM: %s", str(e))
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to analyze errors with AI",
+            ) from e
 
         return ErrorExplanation(
             error_type=explanation.get("error_type", "Runtime"),
@@ -659,6 +662,7 @@ async def explain_errors(
             status_code=500,
             detail="Failed to explain errors",
         ) from e
+
 
 
 @router.post(

@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = "http://localhost:8000/api"  # FastAPI backend
-REQUEST_TIMEOUT = 30  # seconds
+REQUEST_TIMEOUT = 60  # seconds
 NOT_FOUND = 404
 INTERNAL_SERVER_ERROR = 500
 OK = 200
@@ -278,14 +278,16 @@ def api_hints(
 def api_explain(
     course_id: str, topic_id: str, problem_id: str,
 ) -> Response | tuple[Response, int]:
-    """Proxy to FastAPI explain endpoint."""
+    """Generate structured error explanation with actionable fixes."""
     try:
         if not request.is_json:
             return jsonify({"error": "Request must be JSON"}), 400
 
+        request_data = {"code": request.get_json().get("code"), "language": request.get_json().get("language")}
+
         response = requests.post(
             f"{BACKEND_URL}/problems/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/explain",
-            json=request.get_json(),
+            json=request_data,
             headers={"Content-Type": "application/json"},
             timeout=REQUEST_TIMEOUT,
         )
@@ -293,14 +295,14 @@ def api_explain(
         return jsonify(response.json())
 
     except requests.exceptions.HTTPError as e:
-        logger.exception("Explain HTTP error")
+        logging.exception("Explain HTTP error")
         try:
             error_data = e.response.json()
             return jsonify(error_data), e.response.status_code
         except ValueError:
             return jsonify({"error": str(e)}), e.response.status_code
     except Exception:
-        logger.exception("Explain error")
+        logging.exception("Explain error")
         return jsonify({"error": "Internal server error"}), INTERNAL_SERVER_ERROR
 
 

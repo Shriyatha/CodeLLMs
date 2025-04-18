@@ -1,0 +1,1 @@
+{"test_case": 3, "input": "1", "output": "Traceback (most recent call last):\n  File \"/app/code.py\", line 6, in <module>\n    print(function(1))\n          ^^^^^^^^^^^\n  File \"/app/code.py\", line 3, in function\n    if n/0==1:\n       ~^~\nZeroDivisionError: division by zero", "expected": "1", "passed": false, "visible": true, "error": null, "exit_code": 1}
