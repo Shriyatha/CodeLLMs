@@ -13,15 +13,17 @@ id = "io-easy-1"
 title = "Basic Input"
 complexity = "easy"
 description = "Write a program that takes a name as input and prints a greeting."
-starter_code = """const readline = require('readline').createInterface({
+starter_code = """
+const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
 readline.question('Enter your name: ', name => {
-  console.log(`Hello, ${name}`);
+  // Print greeting message here
   readline.close();
-});"""
+});
+"""
 visible_test_cases = [
     { input = "Alice", expected_output = "Hello, Alice" }
 ]
@@ -29,59 +31,6 @@ hidden_test_cases = [
     { input = "Bob", expected_output = "Hello, Bob" }
 ]
 
-[[topics.problems]]
-id = "io-medium-1"
-title = "File Operations"
-complexity = "medium"
-description = "Write a program that reads a text file and counts the number of lines."
-starter_code = """const fs = require('fs');
-const filename = process.argv[2] || 'example.txt';
-
-fs.readFile(filename, 'utf8', (err, data) => {
-  if (err) {
-    console.error('Error reading file:', err);
-    return;
-  }
-  const lineCount = data.split('\\n').length;
-  console.log(lineCount);
-});"""
-visible_test_cases = [
-    { input = "file1.txt", expected_output = "3" }
-]
-hidden_test_cases = [
-    { input = "empty.txt", expected_output = "0" },
-    { input = "large.txt", expected_output = "100" }
-]
-
-[[topics.problems]]
-id = "io-hard-1"
-title = "CSV Reader"
-complexity = "hard"
-description = "Write a program that reads a CSV file and outputs the number of rows and columns."
-starter_code = """const fs = require('fs');
-const csv = require('csv-parser');
-const filename = process.argv[2] || 'data.csv';
-
-let rowCount = 0;
-let colCount = 0;
-
-fs.createReadStream(filename)
-  .pipe(csv())
-  .on('data', (row) => {
-    rowCount++;
-    if (rowCount === 1) {
-      colCount = Object.keys(row).length;
-    }
-  })
-  .on('end', () => {
-    console.log(`Rows: ${rowCount}, Columns: ${colCount}`);
-  });"""
-visible_test_cases = [
-    { input = "data.csv", expected_output = "Rows: 100, Columns: 5" }
-]
-hidden_test_cases = [
-    { input = "large_data.csv", expected_output = "Rows: 1000, Columns: 10" }
-]
 
 [[topics]]
 id = "control"
@@ -93,20 +42,18 @@ id = "control-easy-1"
 title = "Odd or Even"
 complexity = "easy"
 description = "Check if a number is odd or even."
-starter_code = """const readline = require('readline').createInterface({
+starter_code = """
+const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
 readline.question('Enter a number: ', num => {
   const number = parseInt(num);
-  if (number % 2 === 0) {
-    console.log('Even');
-  } else {
-    console.log('Odd');
-  }
+  // Implement odd/even check here
   readline.close();
-});"""
+});
+"""
 visible_test_cases = [
     { input = "4", expected_output = "Even" }
 ]
@@ -119,7 +66,8 @@ id = "control-medium-1"
 title = "FizzBuzz"
 complexity = "medium"
 description = "Print numbers from 1 to N with FizzBuzz rules."
-starter_code = """const readline = require('readline').createInterface({
+starter_code = """
+const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 });
@@ -127,18 +75,11 @@ starter_code = """const readline = require('readline').createInterface({
 readline.question('Enter a number: ', n => {
   const limit = parseInt(n);
   for (let i = 1; i <= limit; i++) {
-    if (i % 15 === 0) {
-      console.log('FizzBuzz');
-    } else if (i % 3 === 0) {
-      console.log('Fizz');
-    } else if (i % 5 === 0) {
-      console.log('Buzz');
-    } else {
-      console.log(i);
-    }
+    // Implement FizzBuzz logic here
   }
   readline.close();
-});"""
+});
+"""
 visible_test_cases = [
     { input = "5", expected_output = "1\n2\nFizz\n4\nBuzz" }
 ]
@@ -151,16 +92,14 @@ id = "control-hard-1"
 title = "Prime Numbers"
 complexity = "hard"
 description = "Write a program to print all prime numbers up to N."
-starter_code = """const readline = require('readline').createInterface({
+starter_code = """
+const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
 function isPrime(num) {
-  for (let i = 2, s = Math.sqrt(num); i <= s; i++) {
-    if (num % i === 0) return false;
-  }
-  return num > 1;
+  // Implement prime check logic here
 }
 
 readline.question('Enter a number: ', n => {
@@ -171,7 +110,8 @@ readline.question('Enter a number: ', n => {
     }
   }
   readline.close();
-});"""
+});
+"""
 visible_test_cases = [
     { input = "10", expected_output = "2\n3\n5\n7" }
 ]
@@ -189,15 +129,19 @@ id = "functions-easy-1"
 title = "Simple Function"
 complexity = "easy"
 description = "Write a function that returns the square of a number."
-starter_code = """function square(n) {
-  return n * n;
+starter_code = """
+function square(n) {
+  // Implement square function here
 }
-console.log(square(4));"""
+
+const num = parseInt(process.argv[2]);
+console.log(square(num));
+"""
 visible_test_cases = [
-    { input = "", expected_output = "16" }
+    { input = "4", expected_output = "16" }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "25" }
+    { input = "5", expected_output = "25" }
 ]
 
 [[topics.problems]]
@@ -205,18 +149,19 @@ id = "functions-medium-1"
 title = "Recursive Factorial"
 complexity = "medium"
 description = "Implement factorial using recursion."
-starter_code = """function factorial(n) {
-  if (n === 0) {
-    return 1;
-  }
-  return n * factorial(n - 1);
+starter_code = """
+function factorial(n) {
+  // Implement recursive factorial here
 }
-console.log(factorial(5));"""
+
+const num = parseInt(process.argv[2]);
+console.log(factorial(num));
+"""
 visible_test_cases = [
-    { input = "", expected_output = "120" }
+    { input = "5", expected_output = "120" }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "1" }
+    { input = "0", expected_output = "1" }
 ]
 
 [[topics.problems]]
@@ -224,19 +169,20 @@ id = "functions-hard-1"
 title = "Memoized Fibonacci"
 complexity = "hard"
 description = "Implement Fibonacci sequence using memoization."
-starter_code = """const memo = {};
+starter_code = """
+const memo = {};
 function fibonacci(n) {
-  if (n <= 1) return n;
-  if (memo[n]) return memo[n];
-  memo[n] = fibonacci(n - 1) + fibonacci(n - 2);
-  return memo[n];
+  // Implement memoized Fibonacci here
 }
-console.log(fibonacci(10));"""
+
+const num = parseInt(process.argv[2]);
+console.log(fibonacci(num));
+"""
 visible_test_cases = [
-    { input = "", expected_output = "55" }
+    { input = "10", expected_output = "55" }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "6765" }
+    { input = "20", expected_output = "6765" }
 ]
 
 [[topics]]
@@ -249,7 +195,35 @@ id = "oop-easy-1"
 title = "Basic Class"
 complexity = "easy"
 description = "Create a class `Person` with attributes `name` and `age`, and a method `introduce`."
-starter_code = """class Person {
+starter_code = """
+class Person {
+  constructor(name, age) {
+    // Initialize attributes here
+  }
+  
+  introduce() {
+    // Implement introduction method here
+  }
+}
+
+const [name, age] = process.argv.slice(2);
+const p = new Person(name, parseInt(age));
+p.introduce();
+"""
+visible_test_cases = [
+    { input = "Alice 30", expected_output = "Hello, my name is Alice and I am 30 years old." }
+]
+hidden_test_cases = [
+    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." }
+]
+
+[[topics.problems]]
+id = "oop-medium-1"
+title = "Inheritance"
+complexity = "medium"
+description = "Create a class `Student` that inherits from `Person` and adds a method `study`."
+starter_code = """
+class Person {
   constructor(name, age) {
     this.name = name;
     this.age = age;
@@ -260,34 +234,22 @@ starter_code = """class Person {
   }
 }
 
-const p = new Person('Alice', 30);
-p.introduce();"""
-visible_test_cases = [
-    { input = "", expected_output = "Hello, my name is Alice and I am 30 years old." }
-]
-hidden_test_cases = [
-    { input = "", expected_output = "Hello, my name is Bob and I am 25 years old." }
-]
-
-[[topics.problems]]
-id = "oop-medium-1"
-title = "Inheritance"
-complexity = "medium"
-description = "Create a class `Student` that inherits from `Person` and adds a method `study`."
-starter_code = """class Student extends Person {
+class Student extends Person {
   study() {
-    console.log('I am studying.');
+    // Implement study method here
   }
 }
 
-const s = new Student('Alice', 20);
+const [name, age] = process.argv.slice(2);
+const s = new Student(name, parseInt(age));
 s.introduce();
-s.study();"""
+s.study();
+"""
 visible_test_cases = [
-    { input = "", expected_output = "Hello, my name is Alice and I am 20 years old.\nI am studying." }
+    { input = "Alice 20", expected_output = "Hello, my name is Alice and I am 20 years old.\nI am studying." }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." }
+    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." }
 ]
 
 [[topics.problems]]
@@ -295,25 +257,32 @@ id = "oop-hard-1"
 title = "Polymorphism"
 complexity = "hard"
 description = "Create a method `speak` in the `Person` class and override it in the `Student` class."
-starter_code = """class Person {
+starter_code = """
+class Person {
+  constructor(name) {
+    this.name = name;
+  }
+  
   speak() {
-    console.log(`${this.name} says: Hello!`);
+    // Implement base speak method here
   }
 }
 
 class Student extends Person {
   speak() {
-    console.log(`${this.name} says: Hello, I am a student!`);
+    // Override speak method here
   }
 }
 
-const s = new Student('Alice', 20);
-s.speak();"""
+const [name] = process.argv.slice(2);
+const s = new Student(name);
+s.speak();
+"""
 visible_test_cases = [
-    { input = "", expected_output = "Alice says: Hello, I am a student!" }
+    { input = "Alice", expected_output = "Alice says: Hello, I am a student!" }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "Bob says: Hello, I am a student!" }
+    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" }
 ]
 
 [[topics]]
@@ -326,14 +295,13 @@ id = "exceptions-easy-1"
 title = "Try-Catch Block"
 complexity = "easy"
 description = "Handle a division by zero error and print 'Cannot divide by zero'."
-starter_code = """try {
-  const result = 10 / 0;
-  if (!isFinite(result)) {
-    throw new Error('Division by zero');
-  }
+starter_code = """
+try {
+  // Attempt division by zero here
 } catch (e) {
-  console.log('Cannot divide by zero');
-}"""
+  // Handle the exception here
+}
+"""
 visible_test_cases = [
     { input = "", expected_output = "Cannot divide by zero" }
 ]
@@ -346,47 +314,26 @@ id = "exceptions-medium-1"
 title = "Custom Exception"
 complexity = "medium"
 description = "Create a custom exception `NegativeNumberError` and raise it when a negative number is passed."
-starter_code = """class NegativeNumberError extends Error {}
+starter_code = """
+class NegativeNumberError extends Error {}
 
 function checkPositive(num) {
-  if (num < 0) {
-    throw new NegativeNumberError('Negative number error!');
-  }
+  // Check for negative number and throw custom exception
 }
 
 try {
-  checkPositive(-5);
+  const num = parseInt(process.argv[2]);
+  checkPositive(num);
 } catch (e) {
   if (e instanceof NegativeNumberError) {
     console.log(e.message);
   }
-}"""
+}
+"""
 visible_test_cases = [
-    { input = "", expected_output = "Negative number error!" }
+    { input = "-5", expected_output = "Negative number error!" }
 ]
 hidden_test_cases = [
-    { input = "", expected_output = "Negative number error!" }
+    { input = "-10", expected_output = "Negative number error!" }
 ]
 
-[[topics.problems]]
-id = "exceptions-hard-1"
-title = "File Not Found Exception"
-complexity = "hard"
-description = "Handle a `FileNotFoundError` when trying to read a non-existent file in Node.js."
-starter_code = """const fs = require('fs');
-
-fs.readFile('non_existent_file.txt', 'utf8', (err, data) => {
-  if (err) {
-    if (err.code === 'ENOENT') {
-      console.log('File not found error!');
-    } else {
-      console.log('Other error:', err.message);
-    }
-  }
-});"""
-visible_test_cases = [
-    { input = "", expected_output = "File not found error!" }
-]
-hidden_test_cases = [
-    { input = "", expected_output = "File not found error!" }
-]
