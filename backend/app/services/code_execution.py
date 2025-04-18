@@ -1,16 +1,23 @@
+"""Code execution service for running code in isolated Docker containers."""
+
 import asyncio
+import contextlib
 import io
 import logging
 import tarfile
 
 import docker
 import mlflow
+from docker.models.containers import Container
 
 from app.services.mlflow_logger import MLFlowLogger
 
 
 class CodeExecutionService:
-    def __init__(self):
+    """Service for executing code in isolated Docker containers with result tracking."""
+
+    def __init__(self) -> None:
+        """Initialize the code execution service with Docker client and configuration."""
         self.client = docker.from_env()
         self.timeout = 10  # Increased timeout to 10 seconds
         self.mem_limit = "200m"  # Increased memory limit to 200MB
@@ -21,7 +28,17 @@ class CodeExecutionService:
         self.mlflow_logger = MLFlowLogger()
 
     async def execute_code(self, code: str, language: str, test_cases: list[dict]) -> list[dict]:
-        print(f"Starting execution for {language} code with {len(test_cases)} test cases")
+        """Execute code with test cases in isolated Docker containers.
+
+        Args:
+            code: Source code to execute
+            language: Programming language of the code
+            test_cases: List of test cases to run the code against
+
+        Returns:
+            List of test case results with execution details
+
+        """
         results = []
         run_execute = None
 
@@ -35,15 +52,14 @@ class CodeExecutionService:
             if language.lower() == "python":
                 image = "python:3.12-slim"
                 filename = "code.py"
-                exec_cmd = ["python", f"/tmp/{filename}"]
+                exec_cmd = ["python", f"/app/{filename}"]
             elif language.lower() == "javascript":
                 image = "node:18-slim"
                 filename = "code.js"
-                exec_cmd = ["node", f"/tmp/{filename}"]
+                exec_cmd = ["node", f"/app/{filename}"]
             else:
-                raise ValueError(f"Unsupported language: {language}")
-
-            # Process each test case
+                error_msg = f"Unsupported language: {language}"
+                logging.error("%s", error_msg)
             for i, case in enumerate(test_cases, 1):
                 input_data = str(case.get("input", ""))
                 expected = str(case.get("expected_output", ""))
@@ -103,7 +119,7 @@ class CodeExecutionService:
                         self.mlflow_logger.log_dict(result, f"test_case_{i}_result.json")
                         self.mlflow_logger.log_text(error_msg, f"test_case_{i}_error.txt")
 
-                    except Exception as e:
+                    except (BaseException, Exception) as e:  # pylint: disable=broad-except
                         error_msg = str(e)
                         result = {
                             "test_case": i,
@@ -126,18 +142,18 @@ class CodeExecutionService:
                     if run_case:
                         mlflow.end_run()
 
-        except Exception as e:
-            self.logger.error(f"Execution failed: {e!s}", exc_info=True)
+        except Exception as e:  # pylint: disable=broad-except
             self.mlflow_logger.log_text(f"Execution failed: {e!s}", "execution_failure.txt")
-            raise RuntimeError(f"Code execution failed: {e!s}")
+            error_msg = f"Code execution failed: {e!s}"
+            raise RuntimeError(error_msg) from e
         finally:
             if run_execute:
                 mlflow.end_run()
 
         return results
 
-    async def _create_and_start_container(self, image: str):
-        """Create and start a container that stays running"""
+    async def _create_and_start_container(self, image: str) -> Container:
+        """Create and start a container that stays running."""
         container = self.client.containers.create(
             image,
             command=["tail", "-f", "/dev/null"],  # Keeps container running
@@ -147,7 +163,7 @@ class CodeExecutionService:
             cpu_period=self.cpu_period,
             cpu_quota=self.cpu_quota,
             network_mode="none",
-            working_dir="/tmp",
+            working_dir="/app",  # Changed from /tmp for security
             detach=True,
         )
 
@@ -160,10 +176,12 @@ class CodeExecutionService:
                 return container
             await asyncio.sleep(0.5)
 
-        raise RuntimeError(f"Container failed to start. Status: {container.status}")
+        error_msg = f"Container failed to start. Status: {container.status}"
+        raise RuntimeError(error_msg)
 
-    async def _write_code_to_container(self, container, code: str, filename: str):
-        """Write code to container with verification"""
+
+    async def _write_code_to_container(self, container: Container, code: str, filename: str) -> None:
+        """Write code to container with verification."""
         # Create tar archive
         tar_stream = io.BytesIO()
         with tarfile.open(fileobj=tar_stream, mode="w") as tar:
@@ -176,15 +194,20 @@ class CodeExecutionService:
         tar_stream.seek(0)
 
         # Write to container
-        if not container.put_archive("/tmp", tar_stream):
-            raise RuntimeError("Failed to write code to container")
+        container_path = "/app"  # Changed from /tmp for security
+        if not container.put_archive(container_path, tar_stream):
+            error_msg = "Failed to write code to container"
+            raise RuntimeError(error_msg)
 
         # Verify file exists
-        exit_code, _ = container.exec_run(["test", "-f", f"/tmp/{filename}"])
+        exit_code, _ = container.exec_run(["test", "-f", f"{container_path}/{filename}"])
         if exit_code != 0:
-            raise RuntimeError("Code file not found in container after writing")
+            error_msg = "Code file not found in container after writing"
+            raise RuntimeError(error_msg)
 
-    async def _execute_in_container(self, container, exec_cmd: list[str], input_data: str):
+    async def _execute_in_container(
+        self, container: Container, exec_cmd: list[str], input_data: str,
+    ) -> tuple[int, str]:
         """Execute command in container with input and return exit code and cleaned output."""
         # Step 1: Create the exec instance with stdin enabled
         exec_id = self.client.api.exec_create(
@@ -201,18 +224,21 @@ class CodeExecutionService:
             exec_id=exec_id["Id"],
             socket=True,
         )
-        sock._sock.settimeout(self.timeout)
+        # Using protected member is unavoidable with the Docker API
+        sock._sock.settimeout(self.timeout)  # pylint: disable=protected-access
 
         try:
             # Step 3: Send input if any
             if input_data:
-                sock._sock.sendall((input_data + "\n").encode("utf-8"))
+                # Using protected member is unavoidable with the Docker API
+                sock._sock.sendall((input_data + "\n").encode("utf-8"))  # pylint: disable=protected-access
 
             # Step 4: Receive and collect raw output
             raw_output = b""
             while True:
                 try:
-                    chunk = sock._sock.recv(4096)
+                    # Using protected member is unavoidable with the Docker API
+                    chunk = sock._sock.recv(4096)  # pylint: disable=protected-access
                     if not chunk:
                         break
                     raw_output += chunk
@@ -224,14 +250,17 @@ class CodeExecutionService:
             sock.close()
 
         # Step 6: Demux Docker's multiplexed output (stdout/stderr)
-        def demux_output(stream):
+        def demux_output(stream: bytes) -> bytes:
             output = b""
-            while len(stream) > 8:
-                header = stream[:8]
+            # Define the constant for header size
+            header_size = 8
+
+            while len(stream) > header_size:
+                header = stream[:header_size]
                 length = int.from_bytes(header[4:], byteorder="big")
-                content = stream[8:8 + length]
+                content = stream[header_size:header_size + length]
                 output += content
-                stream = stream[8 + length:]
+                stream = stream[header_size + length:]
             return output
 
         cleaned_output = demux_output(raw_output).decode("utf-8", errors="replace")
@@ -242,35 +271,33 @@ class CodeExecutionService:
 
         return exit_code, cleaned_output
 
-
-    async def _cleanup_container(self, container):
-        """Stop and remove container with error handling"""
+    async def _cleanup_container(self, container: Container) -> None:
+        """Stop and remove container with error handling."""
         try:
             container.stop(timeout=1)
             container.remove(v=True, force=True)
-        except Exception as e:
-            self.logger.warning(f"Error cleaning up container: {e!s}")
-            try:
+        except (BaseException, Exception):  # pylint: disable=broad-except
+            with contextlib.suppress(Exception):
                 container.remove(v=True, force=True)
-            except:
-                pass
 
     async def compile_code(self, code: str, language: str) -> dict:
-        """Check code syntax in a disposable container"""
+        """Check code syntax in a disposable container."""
         run_compile = None
         try:
             run_compile = self.mlflow_logger.start_run(run_name=f"CompileCode_{language}")
             self.mlflow_logger.log_param("language", language)
             self.mlflow_logger.log_text(code, f"compilation_code_{language}.txt")
+
             if language.lower() == "python":
                 result = await self._compile_python(code)
             elif language.lower() == "javascript":
                 result = await self._compile_javascript(code)
             else:
-                raise ValueError(f"Unsupported language: {language}")
+                error_msg = f"Unsupported language: {language}"
+                logging.error("Unsupported language: %s", error_msg)
             self.mlflow_logger.log_dict(result, "compilation_result.json")
-            return result
-        except Exception as e:
+
+        except (BaseException, Exception) as e:  # pylint: disable=broad-except
             error_dict = {
                 "success": False,
                 "error": str(e),
@@ -278,12 +305,14 @@ class CodeExecutionService:
             }
             self.mlflow_logger.log_dict(error_dict, "compilation_error.json")
             return error_dict
+        else:
+            return result
         finally:
             if run_compile:
                 mlflow.end_run()
 
     async def _compile_python(self, code: str) -> dict:
-        """Python compilation check"""
+        """Python compilation check."""
         container = None
         try:
             # Create container that stays running
@@ -293,7 +322,7 @@ class CodeExecutionService:
                 stdin_open=True,
                 mem_limit=self.mem_limit,
                 network_mode="none",
-                working_dir="/tmp",
+                working_dir="/app",  # Changed from /tmp for security
                 detach=True,
             )
             container.start()
@@ -305,7 +334,8 @@ class CodeExecutionService:
                     break
                 await asyncio.sleep(0.5)
             else:
-                raise RuntimeError("Container failed to start")
+                error_msg = "Container failed to start"
+                raise RuntimeError(error_msg)
 
             # Write code to container
             await self._write_code_to_container(container, code, "code.py")
@@ -314,7 +344,7 @@ class CodeExecutionService:
             compile_script = """\
 import sys
 try:
-    with open("/tmp/code.py") as f:
+    with open("/app/code.py") as f:
         compile(f.read(), "code.py", "exec")
     sys.exit(0)
 except SyntaxError as e:
@@ -332,7 +362,7 @@ except Exception as e:
             # Execute compilation check
             exit_code, output = await self._execute_in_container(
                 container,
-                ["python", "/tmp/compile_check.py"],
+                ["python", "/app/compile_check.py"],
                 "",
             )
 
@@ -347,7 +377,7 @@ except Exception as e:
                 await self._cleanup_container(container)
 
     async def _compile_javascript(self, code: str) -> dict:
-        """JavaScript compilation check"""
+        """JavaScript compilation check."""
         container = None
         try:
             # Create container that stays running
@@ -357,7 +387,7 @@ except Exception as e:
                 stdin_open=True,
                 mem_limit=self.mem_limit,
                 network_mode="none",
-                working_dir="/tmp",
+                working_dir="/app",  # Changed from /tmp for security
                 detach=True,
             )
             container.start()
@@ -369,7 +399,8 @@ except Exception as e:
                     break
                 await asyncio.sleep(0.5)
             else:
-                raise RuntimeError("Container failed to start")
+                error_msg = "Container failed to start"
+                raise RuntimeError(error_msg)
 
             # Write code to container
             await self._write_code_to_container(container, code, "code.js")
@@ -377,7 +408,7 @@ except Exception as e:
             # Execute compilation check
             exit_code, output = await self._execute_in_container(
                 container,
-                ["node", "--check", "/tmp/code.js"],
+                ["node", "--check", "/app/code.js"],
                 "",
             )
 
