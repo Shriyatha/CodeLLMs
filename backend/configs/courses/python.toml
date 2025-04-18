@@ -13,40 +13,15 @@ id = "io-easy-1"
 title = "Basic Input"
 complexity = "easy"
 description = "Write a program that takes a name as input and prints a greeting."
-starter_code = "name = input()\nprint(f'Hello, {name}')"
+starter_code = "# Write your code here"
 visible_test_cases = [
     { input = "Alice", expected_output = "Hello, Alice" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Hello, Bob" }
+    { input = "Bob", expected_output = "Hello, Bob" },
+    { input = "", expected_output = "Hello, " }
 ]
 
-[[topics.problems]]
-id = "io-medium-1"
-title = "File Operations"
-complexity = "medium"
-description = "Write a program that reads a file and counts the number of lines."
-starter_code = "filename = input()\nwith open(filename) as f:\n    print(len(f.readlines()))"
-visible_test_cases = [
-    { input = "file1.txt", expected_output = "3" }
-]
-hidden_test_cases = [
-    { input = "empty.txt", expected_output = "0" },
-    { input = "large.txt", expected_output = "100" }
-]
-
-[[topics.problems]]
-id = "io-hard-1"
-title = "CSV Reader"
-complexity = "hard"
-description = "Write a program that reads a CSV file and outputs the number of rows and columns."
-starter_code = "import csv\nfilename = input()\nwith open(filename) as f:\n    reader = csv.reader(f)\n    data = list(reader)\n    print(f'Rows: {len(data)}, Columns: {len(data[0]) if data else 0}')"
-visible_test_cases = [
-    { input = "data.csv", expected_output = "Rows: 100, Columns: 5" }
-]
-hidden_test_cases = [
-    { input = "large_data.csv", expected_output = "Rows: 1000, Columns: 10" }
-]
 
 [[topics]]
 id = "control"
@@ -58,12 +33,13 @@ id = "control-easy-1"
 title = "Odd or Even"
 complexity = "easy"
 description = "Check if a number is odd or even."
-starter_code = "num = int(input())\nprint('Even' if num % 2 == 0 else 'Odd')"
+starter_code = "num = int(input())\n# Complete the odd/even check"
 visible_test_cases = [
     { input = "4", expected_output = "Even" }
 ]
 hidden_test_cases = [
-    { input = "7", expected_output = "Odd" }
+    { input = "7", expected_output = "Odd" },
+    { input = "0", expected_output = "Even" }
 ]
 
 [[topics.problems]]
@@ -71,12 +47,13 @@ id = "control-medium-1"
 title = "FizzBuzz"
 complexity = "medium"
 description = "Print numbers from 1 to N with FizzBuzz rules."
-starter_code = "n = int(input())\nfor i in range(1, n+1):\n    if i % 15 == 0: print('FizzBuzz')\n    elif i % 3 == 0: print('Fizz')\n    elif i % 5 == 0: print('Buzz')\n    else: print(i)"
+starter_code = "n = int(input())\n# Implement FizzBuzz"
 visible_test_cases = [
     { input = "5", expected_output = "1\n2\nFizz\n4\nBuzz" }
 ]
 hidden_test_cases = [
-    { input = "15", expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz" }
+    { input = "15", expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz" },
+    { input = "1", expected_output = "1" }
 ]
 
 [[topics.problems]]
@@ -84,12 +61,13 @@ id = "control-hard-1"
 title = "Prime Numbers"
 complexity = "hard"
 description = "Write a program to print all prime numbers up to N."
-starter_code = "n = int(input())\nfor num in range(2, n+1):\n    if all(num % i != 0 for i in range(2, int(num**0.5)+1)):\n        print(num)"
+starter_code = "n = int(input())\n# Implement prime number generator"
 visible_test_cases = [
     { input = "10", expected_output = "2\n3\n5\n7" }
 ]
 hidden_test_cases = [
-    { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" }
+    { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" },
+    { input = "2", expected_output = "2" }
 ]
 
 [[topics]]
@@ -102,12 +80,13 @@ id = "functions-easy-1"
 title = "Simple Function"
 complexity = "easy"
 description = "Define a function that returns the square of a number."
-starter_code = "def square(n):\n    return n * n\n\nprint(square(int(input())))"
+starter_code = "# Implement square function"
 visible_test_cases = [
     { input = "4", expected_output = "16" }
 ]
 hidden_test_cases = [
-    { input = "5", expected_output = "25" }
+    { input = "0", expected_output = "0" },
+    { input = "-5", expected_output = "25" }
 ]
 
 [[topics.problems]]
@@ -115,12 +94,13 @@ id = "functions-medium-1"
 title = "Recursive Factorial"
 complexity = "medium"
 description = "Implement factorial using recursion."
-starter_code = "def factorial(n):\n    return 1 if n == 0 else n * factorial(n-1)\n\nprint(factorial(int(input())))"
+starter_code = "# Implement recursive factorial"
 visible_test_cases = [
     { input = "5", expected_output = "120" }
 ]
 hidden_test_cases = [
-    { input = "0", expected_output = "1" }
+    { input = "0", expected_output = "1" },
+    { input = "1", expected_output = "1" }
 ]
 
 [[topics.problems]]
@@ -128,11 +108,12 @@ id = "functions-hard-1"
 title = "Memoized Fibonacci"
 complexity = "hard"
 description = "Implement Fibonacci sequence using memoization."
-starter_code = "from functools import lru_cache\n\n@lru_cache(maxsize=None)\ndef fib(n):\n    return n if n < 2 else fib(n-1) + fib(n-2)\n\nprint(fib(int(input())))"
+starter_code = "# Implement memoized Fibonacci"
 visible_test_cases = [
     { input = "10", expected_output = "55" }
 ]
 hidden_test_cases = [
+    { input = "0", expected_output = "0" },
     { input = "20", expected_output = "6765" }
 ]
 
@@ -146,12 +127,13 @@ id = "datastructures-easy-1"
 title = "List Sum"
 complexity = "easy"
 description = "Sum all numbers in a list."
-starter_code = "numbers = list(map(int, input().split()))\nprint(sum(numbers))"
+starter_code = "numbers = list(map(int, input().split()))\n# Calculate and print sum"
 visible_test_cases = [
     { input = "1 2 3", expected_output = "6" }
 ]
 hidden_test_cases = [
-    { input = "10 20 30", expected_output = "60" }
+    { input = "10 -5 3", expected_output = "8" },
+    { input = "", expected_output = "0" }
 ]
 
 [[topics.problems]]
@@ -159,12 +141,13 @@ id = "datastructures-medium-1"
 title = "Word Frequency"
 complexity = "medium"
 description = "Count frequency of each word in a string."
-starter_code = "from collections import Counter\ntext = input().split()\nfor word, count in Counter(text).items():\n    print(f'{word}: {count}')"
+starter_code = "text = input().split()\n# Count and print word frequencies"
 visible_test_cases = [
     { input = "hello world hello", expected_output = "hello: 2\nworld: 1" }
 ]
 hidden_test_cases = [
-    { input = "apple orange apple banana", expected_output = "apple: 2\norange: 1\nbanana: 1" }
+    { input = "a a a b b", expected_output = "a: 3\nb: 2" },
+    { input = "single", expected_output = "single: 1" }
 ]
 
 [[topics.problems]]
@@ -172,12 +155,13 @@ id = "datastructures-hard-1"
 title = "Largest Product"
 complexity = "hard"
 description = "Find the largest product of two numbers in a list."
-starter_code = "nums = list(map(int, input().split()))\nnums.sort()\nprint(max(nums[0]*nums[1], nums[-1]*nums[-2]))"
+starter_code = "nums = list(map(int, input().split()))\n# Find and print largest product"
 visible_test_cases = [
     { input = "1 2 3 4", expected_output = "12" }
 ]
 hidden_test_cases = [
-    { input = "5 7 1 8", expected_output = "56" }
+    { input = "-5 -4 1 2", expected_output = "20" },
+    { input = "0 0", expected_output = "0" }
 ]
 
 [[topics]]
@@ -190,12 +174,13 @@ id = "oop-easy-1"
 title = "Basic Class"
 complexity = "easy"
 description = "Create a class `Person` with attributes `name` and `age`, and a method `introduce`."
-starter_code = "class Person:\n    def __init__(self, name, age):\n        self.name = name\n        self.age = age\n    \n    def introduce(self):\n        return f'Hello, my name is {self.name} and I am {self.age} years old.'\n\nname, age = input().split()\np = Person(name, int(age))\nprint(p.introduce())"
+starter_code = "# Implement Person class"
 visible_test_cases = [
     { input = "Alice 30", expected_output = "Hello, my name is Alice and I am 30 years old." }
 ]
 hidden_test_cases = [
-    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." }
+    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." },
+    { input = "John 0", expected_output = "Hello, my name is John and I am 0 years old." }
 ]
 
 [[topics.problems]]
@@ -203,12 +188,13 @@ id = "oop-medium-1"
 title = "Inheritance"
 complexity = "medium"
 description = "Create a class `Student` that inherits from `Person` and adds a method `study`."
-starter_code = "class Student(Person):\n    def study(self):\n        return 'I am studying.'\n\nname, age = input().split()\ns = Student(name, int(age))\nprint(f'{s.introduce()}\\n{s.study()}')"
+starter_code = "# Implement Student class inheriting from Person"
 visible_test_cases = [
     { input = "Alice 20", expected_output = "Hello, my name is Alice and I am 20 years old.\nI am studying." }
 ]
 hidden_test_cases = [
-    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." }
+    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." },
+    { input = "Child 10", expected_output = "Hello, my name is Child and I am 10 years old.\nI am studying." }
 ]
 
 [[topics.problems]]
@@ -216,12 +202,13 @@ id = "oop-hard-1"
 title = "Polymorphism"
 complexity = "hard"
 description = "Create a method `speak` in the `Person` class and override it in the `Student` class."
-starter_code = "class Person:\n    def __init__(self, name):\n        self.name = name\n    \n    def speak(self):\n        return f'{self.name} says: Hello!'\n\nclass Student(Person):\n    def speak(self):\n        return f'{self.name} says: Hello, I am a student!'\n\nname = input()\ns = Student(name)\nprint(s.speak())"
+starter_code = "# Implement polymorphism with speak methods"
 visible_test_cases = [
     { input = "Alice", expected_output = "Alice says: Hello, I am a student!" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" }
+    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" },
+    { input = "John", expected_output = "John says: Hello, I am a student!" }
 ]
 
 [[topics]]
@@ -234,7 +221,7 @@ id = "exceptions-easy-1"
 title = "Try-Except Block"
 complexity = "easy"
 description = "Handle a division by zero error and print 'Cannot divide by zero'."
-starter_code = "try:\n    result = 10 / 0\nexcept ZeroDivisionError:\n    print('Cannot divide by zero')"
+starter_code = "# Implement division by zero handling"
 visible_test_cases = [
     { input = "", expected_output = "Cannot divide by zero" }
 ]
@@ -247,23 +234,12 @@ id = "exceptions-medium-1"
 title = "Custom Exception"
 complexity = "medium"
 description = "Create a custom exception `NegativeNumberError` and raise it when a negative number is passed."
-starter_code = "class NegativeNumberError(Exception):\n    pass\n\nnum = int(input())\ntry:\n    if num < 0:\n        raise NegativeNumberError('Negative number error!')\nexcept NegativeNumberError as e:\n    print(e)"
+starter_code = "# Implement NegativeNumberError"
 visible_test_cases = [
     { input = "-5", expected_output = "Negative number error!" }
 ]
 hidden_test_cases = [
-    { input = "-10", expected_output = "Negative number error!" }
+    { input = "-10", expected_output = "Negative number error!" },
+    { input = "0", expected_output = "" }
 ]
 
-[[topics.problems]]
-id = "exceptions-hard-1"
-title = "File Not Found Exception"
-complexity = "hard"
-description = "Handle a `FileNotFoundError` when trying to read a non-existent file."
-starter_code = "try:\n    with open(input(), 'r') as file:\n        pass\nexcept FileNotFoundError:\n    print('File not found error!')"
-visible_test_cases = [
-    { input = "nonexistent.txt", expected_output = "File not found error!" }
-]
-hidden_test_cases = [
-    { input = "missing.txt", expected_output = "File not found error!" }
-]
