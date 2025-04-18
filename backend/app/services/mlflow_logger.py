@@ -15,7 +15,7 @@ class MLFlowLogger:
         self._initialized = False
         try:
             mlflow.set_tracking_uri(tracking_uri)
-            self.experiment_name = "CodeGym"
+            self.experiment_name = "CodeGymLLMS"
             try:
                 mlflow.set_experiment(self.experiment_name)
                 self._initialized = True

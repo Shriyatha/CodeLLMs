@@ -29,6 +29,7 @@ class CourseLoader:
 
             run = self.mlflow_logger.start_run(run_name="LoadAllCourses")
             self.mlflow_logger.log_param("courses_directory", str(Config.COURSES_DIR))
+            print(str(Config.COURSES_DIR))
             loaded_count = 0
 
             for course_file in Config.COURSES_DIR.glob("*.toml"):

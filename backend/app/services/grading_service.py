@@ -7,6 +7,7 @@ from app.services.llm_service import LLMService
 from app.services.code_execution import CodeExecutionService
 from app.services.mlflow_logger import MLFlowLogger
 import mlflow
+import os
 
 # Global storage for submission results with async-safe access
 submissions_storage = {}
@@ -64,34 +65,29 @@ class SubmissionStorage:
 async def validate_submission(code: str, language: str) -> bool:
     """Validate code submission"""
     logger = get_run_logger()
-    mlflow_logger = None
-    if context.get_run_context():
-        mlflow_logger = MLFlowLogger()
+    mlflow_logger = MLFlowLogger() if context.get_run_context() and MLFlowLogger().active_run() else None
 
-    async def _safe_log(log_func, *args, **kwargs):
-        if mlflow_logger and mlflow_logger.active_run():
-            try:
-                await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+    # First check for empty code
+    if not code.strip():
+        raise ValueError("Empty code submission")
 
-    try:
-        if not code.strip():
-            raise ValueError("Empty code submission")
-        if language.lower() not in ["python", "javascript"]:
-            raise ValueError(f"Unsupported language: {language}")
-        if len(code) > 10000:
-            raise ValueError("Code too long (max 10,000 characters)")
+    if mlflow_logger:
+        try:
+            await mlflow_logger.log_metric("submission_length", float(len(code)))
+            await mlflow_logger.log_param("language", language)
+        except Exception as e:
+            logger.error(f"MLflow logging failed: {e}")
+    return True
 
-        await _safe_log(mlflow_logger.log_metric, "submission_length", float(len(code)))
-        await _safe_log(mlflow_logger.log_param, "language", language)
-        return True
-    except Exception as e:
-        await _safe_log(mlflow_logger.log_metric, "validation_failed", 1.0)
-        await _safe_log(mlflow_logger.log_param, "validation_error", str(e))
-        raise
+def custom_execute_tests_cache_key(context, parameters):
+    # Create a cache key based on code, language, test_cases, and problem_id
+    return task_input_hash(context, {k: v for k, v in parameters.items() if k != 'execution_service'})
 
-@task(name="execute_tests", timeout_seconds=30)
+@task(
+    name="execute_tests",
+    timeout_seconds=30,
+    cache_key_fn=custom_execute_tests_cache_key
+)
 async def execute_tests(
     code: str,
     language: str,
@@ -101,38 +97,26 @@ async def execute_tests(
 ) -> List[Dict[str, Any]]:
     """Execute code against test cases"""
     logger = get_run_logger()
-    mlflow_logger = None
-    if context.get_run_context():
-        mlflow_logger = MLFlowLogger()
+    mlflow_logger = MLFlowLogger() if context.get_run_context() and MLFlowLogger().active_run() else None
 
-    async def _safe_log(log_func, *args, **kwargs):
-        if mlflow_logger and mlflow_logger.active_run():
-            try:
-                await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+    test_results = await execution_service.execute_code(
+        code=code,
+        language=language,
+        test_cases=test_cases
+    )
 
-    if not test_cases:
-        raise ValueError("No test cases provided")
+    if mlflow_logger:
+        try:
+            await mlflow_logger.log_param("problem_id", problem_id)
+            await mlflow_logger.log_param("test_case_count", len(test_cases))
 
-    try:
-        await _safe_log(mlflow_logger.log_param, "problem_id", problem_id)
-        await _safe_log(mlflow_logger.log_param, "test_case_count", len(test_cases))
+            passed_count = sum(1 for r in test_results if r.get('passed', False))
+            await mlflow_logger.log_metric("tests_passed", float(passed_count))
+            await mlflow_logger.log_metric("tests_failed", float(len(test_results) - passed_count))
+        except Exception as e:
+            logger.error(f"MLflow logging failed: {e}")
 
-        test_results = await execution_service.execute_code(
-            code=code,
-            language=language,
-            test_cases=test_cases
-        )
-
-        passed_count = sum(1 for r in test_results if r.get('passed', False))
-        await _safe_log(mlflow_logger.log_metric, "tests_passed", float(passed_count))
-        await _safe_log(mlflow_logger.log_metric, "tests_failed", float(len(test_results) - passed_count))
-
-        return test_results
-    except Exception as e:
-        await _safe_log(mlflow_logger.log_metric, "execution_failed", 1.0)
-        raise
+    return test_results
 
 @task(name="calculate_score")
 async def calculate_score(
@@ -141,16 +125,7 @@ async def calculate_score(
 ) -> Dict[str, Any]:
     """Calculate score based on test results"""
     logger = get_run_logger()
-    mlflow_logger = None
-    if context.get_run_context():
-        mlflow_logger = MLFlowLogger()
-
-    async def _safe_log(log_func, *args, **kwargs):
-        if mlflow_logger and mlflow_logger.active_run():
-            try:
-                await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+    mlflow_logger = MLFlowLogger() if context.get_run_context() and MLFlowLogger().active_run() else None
 
     if not test_results:
         raise ValueError("No test results provided")
@@ -178,7 +153,11 @@ async def calculate_score(
 
     score = visible_score + hidden_score
 
-    await _safe_log(mlflow_logger.log_metric, "final_score", score * 100)
+    if mlflow_logger:
+        try:
+            await mlflow_logger.log_metric("final_score", score * 100)
+        except Exception as e:
+            logger.error(f"MLflow logging failed: {e}")
 
     return {
         "score": round(score * 100, 2),
@@ -196,16 +175,8 @@ async def generate_feedback(
 ) -> str:
     """Generate accurate feedback using LLM"""
     logger = get_run_logger()
-    mlflow_logger = None
-    if context.get_run_context():
-        mlflow_logger = MLFlowLogger()
-
-    async def _safe_log(log_func, *args, **kwargs):
-        if mlflow_logger and mlflow_logger.active_run():
-            try:
-                await log_func(*args, **kwargs)
-            except Exception as e:
-                logger.error(f"MLflow logging failed: {e}")
+    # Initialize here as LLMService might use it regardless of Prefect context
+    mlflow_logger = MLFlowLogger()
 
     if not test_results:
         return "No test results available"
@@ -232,17 +203,8 @@ async def generate_feedback(
 
         if errors:
             # Generate detailed feedback for failed tests
-            error_str = "\n".join(
-                f"Test case {i+1}:\n"
-                f"Input: {e['input']}\n"
-                f"Expected: {e['expected']}\n"
-                f"Got: {e['output']}\n"
-                f"{'Error: ' + e['error'] if e['error'] else ''}"
-                for i, e in enumerate(errors))
-
-            # Assuming LLMService has a method to log with MLflow
             feedback_result = await llm_service.explain_errors(
-                error=error_str,
+                error=errors,
                 code=code,
                 problem=problem_description,
                 mlflow_logger=mlflow_logger  # Pass the logger
@@ -267,101 +229,108 @@ async def grade_submission_workflow(
 ) -> Dict[str, Any]:
     """Execute grading with accurate results"""
     logger = get_run_logger()
-    mlflow_logger = None
-    if context.get_run_context():
-        mlflow_logger = MLFlowLogger()
+    mlflow_logger = MLFlowLogger()
 
     try:
-        if mlflow_logger:
-            mlflow_logger.start_run(
-                run_name=f"submission_{submission_id}",
-                nested=False
+        # Initialize MLflow run using context manager
+        with mlflow_logger.start_run(run_name=f"submission_{submission_id}", nested=False):
+            # Initialize storage
+            await SubmissionStorage.create(submission_id, {
+                "status": "started",
+                "started_at": datetime.now(timezone.utc).isoformat()
+            })
+
+            # Prepare test cases
+            visible_test_cases = problem.get('visible_test_cases', [])
+            hidden_test_cases = problem.get('hidden_test_cases', [])
+            test_cases = visible_test_cases + hidden_test_cases
+            visible_count = len(visible_test_cases)
+            problem_id = problem.get("id", "unknown")
+            course_id = problem.get("course_id", "unknown")
+            topic_id = problem.get("topic_id", "unknown")
+            complexity = problem.get("complexity", "unknown")
+
+            # Log parameters
+            if mlflow_logger and mlflow_logger.active_run():
+                try:
+                    mlflow_logger.log_param("submission_id", submission_id)
+                    mlflow_logger.log_param("problem_id", problem_id)
+                    mlflow_logger.log_param("course_id", course_id)
+                    mlflow_logger.log_param("topic_id", topic_id)
+                    mlflow_logger.log_param("complexity", complexity)
+                except Exception as e:
+                    logger.error(f"MLflow logging failed: {e}")
+
+            # Validate submission
+            await validate_submission(code, language)
+
+            # Execute tests
+            test_results = await execute_tests(
+                code=code,
+                language=language,
+                test_cases=test_cases,
+                problem_id=problem_id,
+                execution_service=execution_service
             )
 
-        # Initialize storage
-        await SubmissionStorage.create(submission_id, {
-            "status": "started",
-            "started_at": datetime.now(timezone.utc).isoformat()
-        })
+            # Calculate score
+            score_result = await calculate_score(
+                test_results=test_results,
+                visible_count=visible_count
+            )
 
-        # Prepare test cases
-        visible_test_cases = problem.get('visible_test_cases', [])
-        hidden_test_cases = problem.get('hidden_test_cases', [])
-        test_cases = visible_test_cases + hidden_test_cases
-        visible_count = len(visible_test_cases)
-        problem_id = problem.get("id", "unknown")
-        course_id = problem.get("course_id", "unknown")
-        topic_id = problem.get("topic_id", "unknown")
-        complexity = problem.get("complexity", "unknown")
+            # Generate accurate feedback
+            feedback = await generate_feedback(
+                code=code,
+                test_results=test_results,
+                problem_description=problem.get('description', ''),
+                llm_service=llm_service
+            )
 
-        if mlflow_logger and mlflow_logger.active_run():
-            mlflow_logger.log_param("submission_id", submission_id)
-            mlflow_logger.log_param("problem_id", problem_id)
-            mlflow_logger.log_param("course_id", course_id)
-            mlflow_logger.log_param("topic_id", topic_id)
-            mlflow_logger.log_param("complexity", complexity)
+            # Determine overall status
+            passed_all = all(r.get('passed', False) for r in test_results)
+            status = "completed" if passed_all else "partially_completed"
 
-        # Validate submission
-        await validate_submission(code, language)
+            # Prepare final result
+            result = {
+                "passed": passed_all,
+                "score": score_result["score"],
+                "feedback": feedback,
+                "execution_time": datetime.now(timezone.utc).isoformat(),
+                "test_results": test_results,
+                "problem_id": problem_id,
+                "course": course_id,
+                "topic": topic_id
+            }
 
-        # Execute tests
-        test_results = await execute_tests(
-            code=code,
-            language=language,
-            test_cases=test_cases,
-            problem_id=problem_id,
-            execution_service=execution_service
-        )
+            # Store results
+            await SubmissionStorage.update(submission_id, {
+                "status": status,
+                "result": result,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            })
 
-        # Calculate score
-        score_result = await calculate_score(
-            test_results=test_results,
-            visible_count=visible_count
-        )
+            # Log final metrics and artifacts
+            if mlflow_logger and mlflow_logger.active_run():
+                try:
+                    mlflow_logger.log_metric("final_score", score_result["score"])
+                    mlflow_logger.log_param("final_status", status)
+                    artifact_path = f"temp_submission_code_{submission_id}.{'py' if language.lower() == 'python' else 'js'}"
+                    # Create a dummy file for testing purposes
+                    with open(artifact_path, "w") as f:
+                        f.write(code)
+                    mlflow_logger.log_artifact(artifact_path, artifact_path="submission_code")
+                    os.remove(artifact_path) # Clean up the dummy file
 
-        # Generate accurate feedback
-        feedback = await generate_feedback(
-            code=code,
-            test_results=test_results,
-            problem_description=problem.get('description', ''),
-            llm_service=llm_service
-        )
+                    mlflow_logger.log_dict(result, f"submission_result_{submission_id}.json")
+                except Exception as e:
+                    logger.error(f"MLflow logging failed: {e}")
 
-        # Determine overall status based on test results
-        passed_all = all(r.get('passed', False) for r in test_results)
-        status = "completed" if passed_all else "partially_completed"
-
-        # Prepare final result
-        result = {
-            "passed": passed_all,
-            "score": score_result["score"],
-            "feedback": feedback,
-            "execution_time": datetime.now(timezone.utc).isoformat(),
-            "test_results": test_results,
-            "problem_id": problem_id,
-            "course": course_id,
-            "topic": topic_id
-        }
-
-        # Store results
-        await SubmissionStorage.update(submission_id, {
-            "status": status,
-            "result": result,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": datetime.now(timezone.utc).isoformat()
-        })
-
-        if mlflow_logger and mlflow_logger.active_run():
-            mlflow_logger.log_metric("final_score", score_result["score"])
-            mlflow_logger.log_param("final_status", status)
-            mlflow_logger.log_artifact(f"temp_submission_code_{submission_id}.{'py' if language.lower() == 'python' else 'js'}", artifact_path="submission_code")
-            mlflow_logger.log_dict(result, f"submission_result_{submission_id}.json")
-
-        return result
+            return result
 
     except Exception as e:
         logger.error(f"Grading failed for {submission_id}: {str(e)}", exc_info=True)
-
         error_result = {
             "error": str(e),
             "passed": False,
@@ -370,14 +339,9 @@ async def grade_submission_workflow(
             "test_results": [],
             "problem_id": problem.get("id", "unknown")
         }
-
         await SubmissionStorage.update(submission_id, {
             "status": "failed",
             "result": error_result,
             "error": str(e)
         })
-
         return error_result
-    finally:
-        if mlflow_logger and mlflow_logger.active_run():
-            mlflow_logger.end_run()

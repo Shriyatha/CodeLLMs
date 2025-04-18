@@ -1,0 +1,20 @@
+{
+    "current_complexity": {
+        "time": "O(1)",
+        "space": "O(1)"
+    },
+    "suggested_complexity": {
+        "time": "O(1)",
+        "space": "O(1)"
+    },
+    "optimization_suggestions": [],
+    "readability_suggestions": [],
+    "best_practice_suggestions": [],
+    "edge_cases": [],
+    "explanation": "The current solution is already optimal as it has a time complexity of O(1) and space complexity of O(1). There are no edge cases to consider. The code snippet is clear and easy to understand.",
+    "code_snippet": """
+def square(n):
+    return n * n
+"""
+}
+```

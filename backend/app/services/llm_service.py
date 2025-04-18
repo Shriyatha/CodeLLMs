@@ -140,85 +140,95 @@ Format your response EXACTLY like this:
     ) -> Dict:
         """Generate structured error explanation with actionable fixes"""
         run_name = f"ExplainError_{language}"
+        system_message = "You are a patient programming tutor explaining errors. Return valid JSON."
 
-        with self.mlflow_logger.start_run(run_name=run_name):
-            self.mlflow_logger.log_param("language", language)
-            self.mlflow_logger.log_param("problem", problem)
-            self.mlflow_logger.log_text(code, "problematic_code.txt")
-            self.mlflow_logger.log_text(error, "error_message.txt")
+        if self.mlflow_logger:
+            with self.mlflow_logger.start_run(run_name=run_name):
+                self.mlflow_logger.log_param("language", language)
+                self.mlflow_logger.log_param("problem", problem)
+                self.mlflow_logger.log_text(code, "problematic_code.txt")
+                self.mlflow_logger.log_text(error, "error_message.txt")
 
-            prompt = f"""Programming Language: {language}
-Problem Description:
-{problem}
+                prompt = f"""Programming Language: {language}
+    Problem Description:
+    {problem}
 
-Error Message:
-{error}
+    Error Message:
+    {error}
 
-Problematic Code:
-{code}
+    Problematic Code:
+    {code}
 
-Analyze this error and provide:
-1. Error type classification (e.g., "IndexError")
-2. Clear explanation of why it occurred
-3. 2-3 suggested fixes (bullet points)
-4. Relevant line number if apparent
-5. Common mistakes that lead to this error
+    Analyze this error and provide:
+    1. Error type classification (e.g., "IndexError")
+    2. Clear explanation of why it occurred
+    3. 2-3 suggested fixes (bullet points)
+    4. Relevant line number if apparent
+    5. Common mistakes that lead to this error
 
-Format your response as JSON with these keys:
-{{
-    "error_type": "",
-    "explanation": "",
-    "suggested_fixes": [],
-    "relevant_line": null,
-    "common_mistakes": []
-}}"""
-
-            try:
-                response = await self._generate(
-                    prompt,
-                    system_message="You are a patient programming tutor explaining errors. Return valid JSON."
-                )
-                system_message="You are a patient programming tutor explaining errors. Return valid JSON."
-                # Log successful interaction
-                self.mlflow_logger.log_dict(
-                    {"prompt": prompt, "system_message": system_message},
-                    "llm_prompt.json"
-                )
-                self.mlflow_logger.log_text(response, "llm_response.txt")
-                self.mlflow_logger.set_tag("llm_interaction_status", "success")
+    Format your response as JSON with these keys:
+    {{
+        "error_type": "",
+        "explanation": "",
+        "suggested_fixes": [],
+        "relevant_line": null,
+        "common_mistakes": []
+    }}"""
 
                 try:
-                    result = json.loads(response)
-                    explanation_result = {
-                        "error_type": result.get("error_type", self._extract_error_type(error)),
-                        "explanation": result.get("explanation", ""),
-                        "suggested_fixes": result.get("suggested_fixes", []),
-                        "relevant_line": result.get("relevant_line", self._find_relevant_line(error)),
-                        "common_mistakes": result.get("common_mistakes", [])
-                    }
-                    self.mlflow_logger.log_dict(explanation_result, "error_explanation.json")
-                    return explanation_result
-                except json.JSONDecodeError as json_err:
-                    unstructured_result = self._parse_unstructured_error_response(response, error)
-                    self.mlflow_logger.log_dict(unstructured_result, "unstructured_error_explanation.json")
-                    self.mlflow_logger.log_text(f"JSON Decode Error: {json_err}", "json_decode_error.txt")
-                    return unstructured_result
+                    response = await self._generate(
+                        prompt,
+                        system_message=system_message
+                    )
+                    # Log successful interaction
+                    self.mlflow_logger.log_dict(
+                        {"prompt": prompt, "system_message": system_message},
+                        "llm_prompt.json"
+                    )
+                    self.mlflow_logger.log_text(response, "llm_response.txt")
+                    self.mlflow_logger.set_tag("llm_interaction_status", "success")
 
-            except Exception as e:
-                error_msg = f"Error explanation failed: {str(e)}"
-                self.mlflow_logger.log_text(error_msg, "error_explanation_failure.txt")
-                self.mlflow_logger.set_tag("llm_interaction_status", "failure")
-                explanation_result = {
-                    "error_type": self._extract_error_type(error),
-                    "explanation": f"Error occurred during explanation: {str(e)}",
-                    "suggested_fixes": ["Review the error message and code"],
-                    "relevant_line": self._find_relevant_line(error),
-                    "common_mistakes": []
-                }
-                self.mlflow_logger.log_dict(explanation_result, "error_explanation_failure_details.json")
-                return explanation_result
-            finally:
-                pass # 'with' statement handles end_run
+                    try:
+                        result = json.loads(response)
+                        explanation_result = {
+                            "error_type": result.get("error_type", self._extract_error_type(error)),
+                            "explanation": result.get("explanation", ""),
+                            "suggested_fixes": result.get("suggested_fixes", []),
+                            "relevant_line": result.get("relevant_line", self._find_relevant_line(error)),
+                            "common_mistakes": result.get("common_mistakes", [])
+                        }
+                        self.mlflow_logger.log_dict(explanation_result, "error_explanation.json")
+                        return explanation_result
+                    except json.JSONDecodeError as json_err:
+                        unstructured_result = self._parse_unstructured_error_response(response, error)
+                        self.mlflow_logger.log_dict(unstructured_result, "unstructured_error_explanation.json")
+                        self.mlflow_logger.log_text(f"JSON Decode Error: {json_err}", "json_decode_error.txt")
+                        return unstructured_result
+
+                except Exception as e:
+                    error_msg = f"Error explanation failed: {str(e)}"
+                    self.mlflow_logger.log_text(error_msg, "error_explanation_failure.txt")
+                    self.mlflow_logger.set_tag("llm_interaction_status", "failure")
+                    explanation_result = {
+                        "error_type": self._extract_error_type(error),
+                        "explanation": f"Error occurred during explanation: {str(e)}",
+                        "suggested_fixes": ["Review the error message and code"],
+                        "relevant_line": self._find_relevant_line(error),
+                        "common_mistakes": []
+                    }
+                    self.mlflow_logger.log_dict(explanation_result, "error_explanation_failure_details.json")
+                    return explanation_result
+                finally:
+                    pass # 'with' statement handles end_run
+        else:
+            # Handle the case where mlflow_logger is None
+            return {
+                "error_type": self._extract_error_type(error),
+                "explanation": "MLflow logging is not available.",
+                "suggested_fixes": [],
+                "relevant_line": self._find_relevant_line(error),
+                "common_mistakes": []
+            }
         
     async def analyze_optimizations(self, code: str, problem: str, language: str) -> Dict:
         prompt = f"""Analyze this {language} code and provide optimization suggestions.
