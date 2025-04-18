@@ -1,671 +1,910 @@
-from datetime import datetime, timezone
+"""Module for handling coding problem API endpoints.
+
+This module provides endpoints for managing coding problems, including
+code execution, hint generation, error explanation, and optimization suggestions.
+"""
+
 import logging
 import re
-from threading import Lock
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import uuid4
-from typing import Any, Dict, List, Optional, Union
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
-    Body,
     Depends,
     HTTPException,
     Path,
     status,
 )
-from fastapi.params import Query
 from pydantic import BaseModel, Field
-from prefect import flow, task
-from prefect.cache_policies import NO_CACHE
 
-from app.services.llm_service import LLMService
 from app.services.code_execution import CodeExecutionService
 from app.services.course_loader import CourseLoader
 from app.services.grading_service import SubmissionStorage, grade_submission_workflow
+from app.services.llm_service import LLMService
 
 router = APIRouter(prefix="", tags=["problems"])
 logger = logging.getLogger(__name__)
 
+# Constants
+MAX_CODE_LENGTH = 10000
+VALID_ID_PATTERN = r"^[a-zA-Z0-9_-]+$"
+VALID_LANGUAGES = ["python", "javascript"]
+
 
 # Models
 class SubmissionRequest(BaseModel):
+    """Request model for code submission."""
+
     code: str = Field(..., min_length=1)
     language: str = Field("python", pattern="^(python|javascript)$")
     user_id: str = Field(...)
 
 
 class SubmissionResponse(BaseModel):
+    """Response model for submission status and results."""
+
     submission_id: str = Field(...)
     status: str = Field(...)
     timestamp: datetime = Field(...)
-    result: Optional[Dict[str, Any]] = Field(None)
+    result: dict[str, Any] | None = Field(None)
 
 
 class GradingResult(BaseModel):
+    """Model representing the grading result of a submission."""
+
     passed: bool
     score: float = Field(..., ge=0, le=100)
     feedback: str
     execution_time: str
-    test_results: List[Dict[str, Any]]
+    test_results: list[dict[str, Any]]
 
 
 class CodeSubmission(BaseModel):
+    """Model for submitting code for execution, not grading."""
+
     code: str = Field(..., min_length=1)
     language: str = Field("python", pattern="^(python|javascript)$")
 
 
 class ProblemResponse(BaseModel):
+    """Response model for problem details."""
+
     id: str
     title: str
     description: str
     complexity: str = Field(..., pattern="^(easy|medium|hard)$")
     starter_code: str
-    visible_test_cases: List[Dict[str, Any]]
+    visible_test_cases: list[dict[str, Any]]
 
 
 class TopicResponse(BaseModel):
+    """Response model for topic details including available problems."""
+
     id: str
     title: str
     description: str
-    problems: List[Dict[str, Any]]
+    problems: list[dict[str, Any]]
 
 
 class HintResponse(BaseModel):
+    """Response model for progressive hints."""
+
     hint_level: int = Field(..., ge=0)
     hint_text: str
     max_level: int = Field(..., ge=1)
 
 
 class ErrorExplanation(BaseModel):
+    """Response model for error explanations with suggestions."""
+
     error_type: str
     explanation: str
-    suggested_fixes: List[str]
+    suggested_fixes: list[str]
     original_error: str
-    relevant_line: Optional[int] = Field(None, ge=1)
+    relevant_line: int | None = Field(None, ge=1)
 
 
 class Complexity(BaseModel):
+    """Model representing time and space complexity."""
+
     time: str
     space: str
 
 
 class OptimizationSuggestion(BaseModel):
+    """Response model for code optimization suggestions."""
+
     current_complexity: Complexity
     suggested_complexity: Complexity
-    optimization_suggestions: List[str]
-    readability_suggestions: List[str]
-    best_practice_suggestions: List[str]
-    edge_cases: List[str]
+    optimization_suggestions: list[str]
+    readability_suggestions: list[str]
+    best_practice_suggestions: list[str]
+    edge_cases: list[str]
     explanation: str
     code_snippet: str
 
 
 class ConceptualSteps(BaseModel):
-    steps: List[str]
-    current_step: Optional[int] = Field(None, ge=0)
+    """Response model for conceptual problem-solving steps."""
+
+    steps: list[str]
+    current_step: int | None = Field(None, ge=0)
 
 
 class DebuggingSuggestion(BaseModel):
+    """Response model for debugging suggestions."""
+
     strategy: str
-    variables_to_track: List[str]
+    variables_to_track: list[str]
 
 
 class ExecutionResult(BaseModel):
-    visible_results: List[Dict[str, Any]]
+    """Response model for code execution results."""
+
+    visible_results: list[dict[str, Any]]
     hidden_passed: bool
     execution_time: str
 
 
 class PseudocodeResponse(BaseModel):
+    """Response model for pseudocode generation."""
+
     pseudocode: str
     explanation: str
 
 
-# Dependency injections
-def get_execution_service():
-    try:
-        return CodeExecutionService()
-    except Exception as e:
-        logger.error(f"Failed to initialize CodeExecutionService: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Code execution service unavailable"
-        )
-
-
-def get_course_loader():
-    try:
-        return CourseLoader()
-    except Exception as e:
-        logger.error(f"Failed to initialize CourseLoader: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Course loading service unavailable"
-        )
-
-
-def get_llm_service():
-    try:
-        return LLMService()
-    except Exception as e:
-        logger.error(f"Failed to initialize LLMService: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI service unavailable"
-        )
-
-
 # Helper functions
+def raise_not_found(detail: str = "Resource not found") -> None:
+    """Raise a 404 Not Found error with custom detail message.
+
+    Args:
+        detail: Custom error message to include in response.
+
+    """
+    raise HTTPException(status_code=404, detail=detail)
+
+
+def raise_internal_error(detail: str = "Internal server error") -> None:
+    """Raise a 500 Internal Server Error with custom detail message.
+
+    Args:
+        detail: Custom error message to include in response.
+
+    """
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=detail,
+    )
+
+
+def raise_bad_request(detail: str) -> None:
+    """Raise a 400 Bad Request error with custom detail message.
+
+    Args:
+        detail: Custom error message to include in response.
+
+    """
+    raise HTTPException(status_code=400, detail=detail)
+
+
+def validate_id_format(id_value: str, id_name: str) -> None:
+    """Validate ID format against allowed pattern.
+
+    Args:
+        id_value: The ID string to validate.
+        id_name: Name of the ID for error messages.
+
+    Raises:
+        HTTPException: If ID format is invalid.
+
+    """
+    if not re.match(VALID_ID_PATTERN, id_value):
+        raise HTTPException(status_code=400, detail=f"Invalid {id_name} ID format")
+
+
 async def validate_problem_exists(
     course_id: str,
     topic_id: str,
     problem_id: str,
-    loader: CourseLoader
-):
-    if not re.match(r'^[a-zA-Z0-9_-]+$', course_id):
-        raise HTTPException(status_code=400, detail="Invalid course ID format")
-    if not re.match(r'^[a-zA-Z0-9_-]+$', topic_id):
-        raise HTTPException(status_code=400, detail="Invalid topic ID format")
-    if not re.match(r'^[a-zA-Z0-9_-]+$', problem_id):
-        raise HTTPException(status_code=400, detail="Invalid problem ID format")
+    loader: CourseLoader,
+) -> dict[str, Any]:
+    """Validate that a problem exists and return its data.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        loader: Course loader service instance.
+
+    Returns:
+        Problem data dictionary if found.
+
+    Raises:
+        HTTPException: If validation fails or problem doesn't exist.
+
+    """
+    validate_id_format(course_id, "course")
+    validate_id_format(topic_id, "topic")
+    validate_id_format(problem_id, "problem")
 
     try:
         problem = await loader.get_problem(course_id, topic_id, problem_id)
         if not problem:
-            logger.error(f"Problem not found: {course_id}/{topic_id}/{problem_id}")
-            raise HTTPException(status_code=404, detail="Problem not found")
-        return problem
+            logger.error("Problem not found: %s/%s/%s", course_id, topic_id, problem_id)
+            raise_not_found("Problem not found")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error loading problem: {str(e)}")
+        logger.exception("Error loading problem")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to load problem"
-        )
+            detail="Failed to load problem",
+        ) from e
+    else:
+        return problem
 
 
-async def validate_code_submission(code: str, language: str = "python"):
+async def validate_code_submission(code: str, language: str = "python") -> None:
+    """Validate code submission against basic requirements.
+
+    Args:
+        code: The code string to validate.
+        language: Programming language of submitted code.
+
+    Raises:
+        HTTPException: If validation fails.
+
+    """
     if not code.strip():
         raise HTTPException(status_code=400, detail="Empty code submission")
-    if len(code) > 10000:
-        raise HTTPException(status_code=400, detail="Code too long (max 10,000 characters)")
-    if language not in ["python", "javascript"]:
+    if len(code) > MAX_CODE_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Code too long (max {MAX_CODE_LENGTH:,} characters)",
+        )
+    if language not in VALID_LANGUAGES:
         raise HTTPException(status_code=400, detail="Unsupported language")
+
+
+# Dependency injections
+def get_execution_service() -> CodeExecutionService:
+    """Create and return a CodeExecutionService instance.
+
+    Returns:
+        An initialized CodeExecutionService for code execution.
+
+    Raises:
+        HTTPException: If service initialization fails.
+
+    """
+    try:
+        return CodeExecutionService()
+    except Exception as e:
+        logger.exception("Failed to initialize CodeExecutionService")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Code execution service unavailable",
+        ) from e
+
+
+def get_course_loader() -> CourseLoader:
+    """Create and return a CourseLoader instance.
+
+    Returns:
+        An initialized CourseLoader for accessing course content.
+
+    Raises:
+        HTTPException: If service initialization fails.
+
+    """
+    try:
+        return CourseLoader()
+    except Exception as e:
+        logger.exception("Failed to initialize CourseLoader")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Course loading service unavailable",
+        ) from e
+
+
+def get_llm_service() -> LLMService:
+    """Create and return an LLM service instance.
+
+    Returns:
+        An initialized LLMService for AI-powered features.
+
+    Raises:
+        HTTPException: If service initialization fails.
+
+    """
+    try:
+        return LLMService()
+    except Exception as e:
+        logger.exception("Failed to initialize LLMService")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service unavailable",
+        ) from e
 
 
 # Endpoints
 @router.get(
     "/courses/{course_id}/topics/{topic_id}",
-    response_model=TopicResponse,
     responses={
         404: {"description": "Topic not found"},
         400: {"description": "Invalid ID format"},
-        500: {"description": "Internal server error"}
-    }
+        500: {"description": "Internal server error"},
+    },
+    response_model=TopicResponse,
 )
 async def get_topic_details(
-    course_id: str = Path(..., description="ID of the course", min_length=1),
-    topic_id: str = Path(..., description="ID of the topic", min_length=1),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Get topic information including description and list of problems"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> TopicResponse:
+    """Get topic information including description and list of problems.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        loader: Injected course loader instance.
+
+    Returns:
+        TopicResponse with topic details and problems.
+
+    Raises:
+        HTTPException: If topic not found or other errors occur.
+
+    """
     try:
-        if not re.match(r'^[a-zA-Z0-9_-]+$', course_id):
-            raise HTTPException(status_code=400, detail="Invalid course ID format")
-        if not re.match(r'^[a-zA-Z0-9_-]+$', topic_id):
-            raise HTTPException(status_code=400, detail="Invalid topic ID format")
+        validate_id_format(course_id, "course")
+        validate_id_format(topic_id, "topic")
 
         topic = await loader.get_topic(course_id, topic_id)
         if not topic:
-            logger.error(f"Topic not found: {course_id}/{topic_id}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Topic {topic_id} not found"
-            )
-        
+            logger.error("Topic not found: %s/%s", course_id, topic_id)
+            raise_not_found(f"Topic {topic_id} not found")
+
         return TopicResponse(
             id=topic_id,
             title=topic.get("title", ""),
             description=topic.get("description", ""),
-            problems=topic.get("problems", [])
+            problems=topic.get("problems", []),
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting topic details: {str(e)}", exc_info=True)
+        logger.exception("Error getting topic details")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
-        )
+            detail="Internal server error",
+        ) from e
 
 
 @router.get(
-    "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}", 
-    response_model=ProblemResponse,
+    "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}",
     responses={
         404: {"description": "Problem not found"},
         400: {"description": "Invalid ID format"},
-        500: {"description": "Internal server error"}
-    }
+        500: {"description": "Internal server error"},
+    },
+    response_model=ProblemResponse,
 )
 async def get_problem_details(
-    course_id: str = Path(..., description="ID of the course", min_length=1),
-    topic_id: str = Path(..., description="ID of the topic", min_length=1),
-    problem_id: str = Path(..., description="ID of the problem", min_length=1),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Get detailed problem information including starter code and test cases"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> ProblemResponse:
+    """Get detailed problem information including starter code and test cases.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        loader: Injected course loader instance.
+
+    Returns:
+        ProblemResponse with problem details.
+
+    Raises:
+        HTTPException: If problem not found or other errors occur.
+
+    """
     try:
         problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
-        
+
         return ProblemResponse(
             id=problem_id,
             title=problem.get("title", ""),
             description=problem.get("description", ""),
             complexity=problem.get("complexity", "medium"),
             starter_code=problem.get("starter_code", ""),
-            visible_test_cases=problem.get("visible_test_cases", [])
+            visible_test_cases=problem.get("visible_test_cases", []),
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting problem details: {str(e)}", exc_info=True)
+        logger.exception("Error getting problem details")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error"
-        )
+            detail="Internal server error",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/execute",
-    response_model=ExecutionResult,
     responses={
         400: {"description": "Invalid input or no test cases"},
         404: {"description": "Problem not found"},
-        500: {"description": "Execution failed"}
-    }
+        500: {"description": "Execution failed"},
+    },
+    response_model=ExecutionResult,
 )
 async def execute_problem(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    execution_service: CodeExecutionService = Depends(get_execution_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Execute code against test cases in secure Docker container"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: CodeSubmission,
+    execution_service: Annotated[CodeExecutionService, Depends(get_execution_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> ExecutionResult:
+    """Execute code against test cases in secure Docker container.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: Code submission to execute.
+        execution_service: Code execution service instance.
+        loader: Course loader service instance.
+
+    Returns:
+        ExecutionResult with test results.
+
+    Raises:
+        HTTPException: If execution fails or other errors occur.
+
+    """
     try:
         await validate_code_submission(submission.code, submission.language)
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
+        problem = await validate_problem_exists(
+            course_id, topic_id, problem_id, loader,
+        )
 
-        test_cases = problem.get('visible_test_cases', []) + problem.get('hidden_test_cases', [])
+        test_cases = problem.get("visible_test_cases", []) + problem.get("hidden_test_cases", [])
         if not test_cases:
-            logger.error(f"No test cases found for problem: {problem_id}")
-            raise HTTPException(status_code=400, detail="No test cases provided")
+            logger.error("No test cases found for problem: %s", problem_id)
+            raise_bad_request("No test cases provided")
 
         results = await execution_service.execute_code(
             code=submission.code,
             language=submission.language,
-            test_cases=test_cases
+            test_cases=test_cases,
         )
 
         if not isinstance(results, list):
-            logger.error(f"Unexpected results format: {type(results)}")
-            raise HTTPException(status_code=500, detail="Unexpected results format")
+            logger.error("Unexpected results format: %s", type(results))
+            raise_bad_request("Unexpected results format")
 
-        visible_count = len(problem.get('visible_test_cases', []))
+        visible_count = len(problem.get("visible_test_cases", []))
         visible_results = results[:visible_count]
+
+        all_hidden_passed = True
+        if len(results) > visible_count:
+            all_hidden_passed = all(r.get("passed", False) for r in results[visible_count:])
 
         return ExecutionResult(
             visible_results=visible_results,
-            hidden_passed=all(r.get('passed', False) for r in results[visible_count:]),
-            execution_time=datetime.now(timezone.utc).isoformat()
+            hidden_passed=all_hidden_passed,
+            execution_time=datetime.now(UTC).isoformat(),
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Execution failed: {str(e)}", exc_info=True)
+        logger.exception("Execution failed")
         raise HTTPException(
             status_code=500,
-            detail="Code execution failed"
-        )
+            detail="Code execution failed",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/hints",
-    response_model=HintResponse,
     responses={
         400: {"description": "Invalid input"},
         404: {"description": "Problem not found"},
-        500: {"description": "Failed to generate hints"}
-    }
+        500: {"description": "Failed to generate hints"},
+    },
+    response_model=HintResponse,
 )
 async def get_progressive_hints(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Get tiered hints to guide student toward solution"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: CodeSubmission,
+    llm: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> HintResponse:
+    """Get tiered hints to guide student toward solution.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: Code submission to provide hints for.
+        llm: LLM service for hint generation.
+        loader: Course loader service instance.
+
+    Returns:
+        HintResponse with hint text and level information.
+
+    Raises:
+        HTTPException: If hint generation fails or other errors occur.
+
+    """
     try:
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
-        await validate_code_submission(submission.code, submission.language)
-        
-        hints, max_level = await llm.get_progressive_hints(
-            problem=problem['description'],
-            code=submission.code,
-            current_level=0
+        problem = await validate_problem_exists(
+            course_id, topic_id, problem_id, loader,
         )
-        
+        await validate_code_submission(submission.code, submission.language)
+
+        hints, max_level = await llm.get_progressive_hints(
+            problem=problem["description"],
+            code=submission.code,
+            current_level=0,
+        )
+
         return HintResponse(
             hint_level=0,
             hint_text=hints[0] if hints else "No hints available",
-            max_level=max_level
+            max_level=max_level,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Hint generation failed: {str(e)}", exc_info=True)
+        logger.exception("Hint generation failed")
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate hints"
-        )
+            detail="Failed to generate hints",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/explain",
-    response_model=ErrorExplanation,
     responses={
         400: {"description": "Invalid input or no errors"},
         404: {"description": "Problem not found"},
-        500: {"description": "Failed to explain errors"}
-    }
+        500: {"description": "Failed to explain errors"},
+    },
+    response_model=ErrorExplanation,
 )
 async def explain_errors(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    execution_service: CodeExecutionService = Depends(get_execution_service),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Explain errors in user's code with AI assistance"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: CodeSubmission,
+    execution_service: Annotated[CodeExecutionService, Depends(get_execution_service)],
+    llm: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> ErrorExplanation:
+    """Explain errors in user's code with AI assistance.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: Code submission to explain errors for.
+        execution_service: Code execution service instance.
+        llm: LLM service for error analysis.
+        loader: Course loader service instance.
+
+    Returns:
+        ErrorExplanation with detailed error analysis.
+
+    Raises:
+        HTTPException: If error analysis fails or other errors occur.
+
+    """
     try:
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
+        problem = await validate_problem_exists(
+            course_id, topic_id, problem_id, loader,
+        )
         await validate_code_submission(submission.code, submission.language)
 
         # First try compilation
         compile_result = await execution_service.compile_code(
             code=submission.code,
-            language=submission.language
+            language=submission.language,
         )
-        
-        if not compile_result['success']:
-            error = compile_result['error']
+
+        if not compile_result["success"]:
+            error = compile_result["error"]
         else:
             # If compilation succeeds, try execution
-            test_case = problem.get('visible_test_cases', [{}])[0] if problem.get('visible_test_cases') else {}
+            visible_test_cases = problem.get("visible_test_cases", [])
+            test_case = visible_test_cases[0] if visible_test_cases else {}
             exec_result = await execution_service.execute_code(
                 code=submission.code,
                 language=submission.language,
-                test_cases=[test_case]
+                test_cases=[test_case],
             )
-            error = next((r['error'] for r in exec_result if r.get('error')), None)
-        
+            error = next((r["error"] for r in exec_result if r.get("error")), None)
+
         if not error:
-            raise HTTPException(status_code=400, detail="No errors found in the code")
-        
+            raise_bad_request("No errors found in the code")
+
         explanation = await llm.explain_errors(
             error=error,
             code=submission.code,
-            problem=problem['description']
+            problem=problem["description"],
         )
-        
+
         return ErrorExplanation(
-            error_type=explanation.get('error_type', 'Runtime'),
-            explanation=explanation.get('explanation', 'No explanation available'),
-            suggested_fixes=explanation.get('suggested_fixes', []),
+            error_type=explanation.get("error_type", "Runtime"),
+            explanation=explanation.get("explanation", "No explanation available"),
+            suggested_fixes=explanation.get("suggested_fixes", []),
             original_error=error,
-            relevant_line=explanation.get('line')
+            relevant_line=explanation.get("line"),
         )
-            
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error explanation failed: {str(e)}", exc_info=True)
+        logger.exception("Error explanation failed")
         raise HTTPException(
             status_code=500,
-            detail="Failed to explain errors"
-        )
+            detail="Failed to explain errors",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/optimize",
-    response_model=OptimizationSuggestion,
     responses={
         400: {"description": "Invalid input or code errors"},
         404: {"description": "Problem not found"},
-        500: {"description": "Failed to generate optimizations"}
-    }
+        500: {"description": "Failed to generate optimizations"},
+    },
+    response_model=OptimizationSuggestion,
 )
 async def suggest_optimizations(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    execution_service: CodeExecutionService = Depends(get_execution_service),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Suggest improvements for working or nearly-working code"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: CodeSubmission,
+    execution_service: Annotated[CodeExecutionService, Depends(get_execution_service)],
+    llm: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> OptimizationSuggestion:
+    """Suggest improvements for working or nearly-working code.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: Code submission to optimize.
+        execution_service: Code execution service instance.
+        llm: LLM service for optimization analysis.
+        loader: Course loader service instance.
+
+    Returns:
+        OptimizationSuggestion with optimization recommendations.
+
+    Raises:
+        HTTPException: If optimization analysis fails or other errors occur.
+
+    """
     try:
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
+        problem = await validate_problem_exists(
+            course_id, topic_id, problem_id, loader,
+        )
         await validate_code_submission(submission.code, submission.language)
 
         # First try compilation
         compile_result = await execution_service.compile_code(
             code=submission.code,
-            language=submission.language
+            language=submission.language,
         )
-        
-        if not compile_result['success']:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Code has compilation errors: {compile_result.get('error', 'Unknown error')}"
-            )
-        
+
+        if not compile_result["success"]:
+            error_msg = compile_result.get("error", "Unknown error")
+            raise_bad_request(f"Code has compilation errors: {error_msg}")
+
         # Basic execution check
-        test_case = problem.get('visible_test_cases', [{}])[0] if problem.get('visible_test_cases') else {}
+        visible_test_cases = problem.get("visible_test_cases", [])
+        test_case = visible_test_cases[0] if visible_test_cases else {}
         exec_result = await execution_service.execute_code(
             code=submission.code,
             language=submission.language,
-            test_cases=[test_case]
+            test_cases=[test_case],
         )
-        
-        if not exec_result or not exec_result[0].get('passed', False):
-            error = exec_result[0].get('error', 'Test case failed') if exec_result else 'Execution failed'
-            raise HTTPException(
-                status_code=400,
-                detail=f"Code fails basic test cases: {error}"
-            )
+
+        if not exec_result or not exec_result[0].get("passed", False):
+            error = "Execution failed"
+            if exec_result:
+                error = exec_result[0].get("error", "Test case failed")
+            raise_bad_request(f"Code fails basic test cases: {error}")
 
         # Get optimization suggestions
         optimization = await llm.analyze_optimizations(
             code=submission.code,
-            problem=problem['description'],
-            language=submission.language
+            problem=problem["description"],
+            language=submission.language,
         )
 
+        default_complexity = {"time": "Unknown", "space": "Unknown"}
+        current_complexity = optimization.get("current_complexity", default_complexity)
+        suggested_complexity = optimization.get("suggested_complexity", default_complexity)
+
         return OptimizationSuggestion(
-            current_complexity=Complexity(**optimization.get('current_complexity', {"time": "Unknown", "space": "Unknown"})),
-            suggested_complexity=Complexity(**optimization.get('suggested_complexity', {"time": "Unknown", "space": "Unknown"})),
-            optimization_suggestions=optimization.get('optimization_suggestions', []),
-            readability_suggestions=optimization.get('readability_suggestions', []),
-            best_practice_suggestions=optimization.get('best_practice_suggestions', []),
-            edge_cases=optimization.get('edge_cases', []),
-            explanation=optimization.get('explanation', 'No optimization suggestions available'),
-            code_snippet=optimization.get('code_snippet', '')
+            current_complexity=Complexity(**current_complexity),
+            suggested_complexity=Complexity(**suggested_complexity),
+            optimization_suggestions=optimization.get("optimization_suggestions", []),
+            readability_suggestions=optimization.get("readability_suggestions", []),
+            best_practice_suggestions=optimization.get("best_practice_suggestions", []),
+            edge_cases=optimization.get("edge_cases", []),
+            explanation=optimization.get("explanation", "No optimization suggestions available"),
+            code_snippet=optimization.get("code_snippet", ""),
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Optimization suggestion failed: {str(e)}", exc_info=True)
+        logger.exception("Optimization suggestion failed")
         raise HTTPException(
             status_code=500,
-            detail="Internal server error while generating optimizations"
-        )
+            detail="Internal server error while generating optimizations",
+        ) from e
 
 
 @router.get(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/steps",
-    response_model=ConceptualSteps,
     responses={
         404: {"description": "Problem not found"},
-        500: {"description": "Failed to generate steps"}
-    }
+        500: {"description": "Failed to generate steps"},
+    },
+    response_model=ConceptualSteps,
 )
 async def get_conceptual_steps(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Break down problem into smaller conceptual steps"""
+    course_id: Annotated[str, Path(...)],
+    topic_id: Annotated[str, Path(...)],
+    problem_id: Annotated[str, Path(...)],
+    llm: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> ConceptualSteps:
+    """Break down problem into smaller conceptual steps.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        llm: LLM service for conceptual analysis.
+        loader: Course loader service instance.
+
+    Returns:
+        ConceptualSteps with problem-solving breakdown.
+
+    Raises:
+        HTTPException: If step generation fails or other errors occur.
+
+    """
     try:
         problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
-        
+
         steps = await llm.generate_conceptual_steps(
-            problem=problem['description']
+            problem=problem["description"],
         )
-        
+
         return ConceptualSteps(
             steps=steps,
-            current_step=None
+            current_step=None,
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to generate steps: {str(e)}", exc_info=True)
+        logger.exception("Failed to generate steps")
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate conceptual steps"
-        )
-
-
-@router.post(
-    "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/debug",
-    response_model=DebuggingSuggestion,
-    responses={
-        400: {"description": "Invalid input"},
-        404: {"description": "Problem not found"},
-        500: {"description": "Failed to generate debugging tips"}
-    }
-)
-async def get_debugging_tips(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Provide debugging guidance without revealing solution"""
-    try:
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
-        await validate_code_submission(submission.code, submission.language)
-        
-        debugging = await llm.suggest_debugging(
-            code=submission.code,
-            problem=problem['description']
-        )
-        
-        return DebuggingSuggestion(
-            strategy=debugging.get('strategy', 'Add print statements to track values'),
-            variables_to_track=debugging.get('variables_to_track', [])
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Debugging failed: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to generate debugging tips"
-        )
+            detail="Failed to generate conceptual steps",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/pseudocode",
-    response_model=PseudocodeResponse,
     responses={
         400: {"description": "Invalid input"},
         404: {"description": "Problem not found"},
-        500: {"description": "Failed to generate pseudocode"}
-    }
+        500: {"description": "Failed to generate pseudocode"},
+    },
+    response_model=PseudocodeResponse,
 )
 async def generate_pseudocode(
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: CodeSubmission = Body(...),
-    llm: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Help translate student logic into structured pseudocode"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: CodeSubmission,
+    llm: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> PseudocodeResponse:
+    """Help translate student logic into structured pseudocode.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: Code submission to generate pseudocode for.
+        llm: LLM service for pseudocode generation.
+        loader: Course loader service instance.
+
+    Returns:
+        PseudocodeResponse with pseudocode and explanation.
+
+    Raises:
+        HTTPException: If pseudocode generation fails or other errors occur.
+
+    """
     try:
-        problem = await validate_problem_exists(course_id, topic_id, problem_id, loader)
+        problem = await validate_problem_exists(
+            course_id, topic_id, problem_id, loader,
+        )
         await validate_code_submission(submission.code, submission.language)
-        
+
         pseudocode = await llm.generate_pseudocode(
             code=submission.code,
-            problem=problem['description']
+            problem=problem["description"],
         )
-        
+
         return PseudocodeResponse(
-            pseudocode=pseudocode.get('pseudocode', ''),
-            explanation=pseudocode.get('explanation', '')
+            pseudocode=pseudocode.get("pseudocode", ""),
+            explanation=pseudocode.get("explanation", ""),
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Pseudocode failed: {str(e)}", exc_info=True)
+        logger.exception("Pseudocode failed")
         raise HTTPException(
             status_code=500,
-            detail="Failed to generate pseudocode"
-        )
-
-
-async def run_flow_in_background(flow_func, *args, **kwargs):
-    """Helper function to properly run a flow in the background"""
-    try:
-        await flow_func(*args, **kwargs)
-    except Exception as e:
-        logger.error(f"Flow execution failed: {str(e)}", exc_info=True)
+            detail="Failed to generate pseudocode",
+        ) from e
 
 
 @router.post(
     "/courses/{course_id}/topics/{topic_id}/problems/{problem_id}/submit",
-    response_model=SubmissionResponse
+    response_model=SubmissionResponse,
 )
 async def submit_problem(
-    background_tasks: BackgroundTasks,
-    course_id: str = Path(...),
-    topic_id: str = Path(...),
-    problem_id: str = Path(...),
-    submission: SubmissionRequest = Body(...),
-    execution_service: CodeExecutionService = Depends(get_execution_service),
-    llm_service: LLMService = Depends(get_llm_service),
-    loader: CourseLoader = Depends(get_course_loader)
-):
-    """Submission endpoint that waits for completion"""
+    course_id: Annotated[str, Path(..., description="ID of the course", min_length=1)],
+    topic_id: Annotated[str, Path(..., description="ID of the topic", min_length=1)],
+    problem_id: Annotated[str, Path(..., description="ID of the problem", min_length=1)],
+    submission: SubmissionRequest,
+    execution_service: Annotated[CodeExecutionService, Depends(get_execution_service)],
+    llm_service: Annotated[LLMService, Depends(get_llm_service)],
+    loader: Annotated[CourseLoader, Depends(get_course_loader)],
+) -> SubmissionResponse:
+    """Submit problem solution for grading.
+
+    Args:
+        course_id: The course identifier.
+        topic_id: The topic identifier.
+        problem_id: The problem identifier.
+        submission: User's code submission.
+        execution_service: Code execution service instance.
+        llm_service: LLM service for analysis.
+        loader: Course loader service instance.
+
+    Returns:
+        SubmissionResponse with submission status and results.
+
+    Raises:
+        HTTPException: If submission processing fails or other errors occur.
+
+    """
     submission_id = str(uuid4())
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
 
     # Initialize storage
     submission_data_init = {
@@ -679,14 +918,16 @@ async def submit_problem(
         "code": submission.code,
         "language": submission.language,
         "result": None,
-        "updated_at": timestamp.isoformat()  # Store as ISO string
+        "updated_at": timestamp.isoformat(),  # Store as ISO string
     }
+
     await SubmissionStorage.create(submission_id, submission_data_init)
 
     try:
-        problem = await loader.get_problem(course_id, topic_id, problem_id)
+        problem = await loader.get_problem(course_id,
+                                                  topic_id, problem_id)
         if not problem:
-            raise HTTPException(status_code=404, detail="Problem not found")
+            raise_not_found("Problem not found")
 
         result = await grade_submission_workflow(
             submission_id=submission_id,
@@ -694,34 +935,34 @@ async def submit_problem(
             language=submission.language,
             problem=problem,
             execution_service=execution_service,
-            llm_service=llm_service
+            llm_service=llm_service,
         )
 
         final_status = "completed" if result.get("passed") else "failed"
         await SubmissionStorage.update(submission_id, {
             "status": final_status,
             "result": result,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "completed_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
         })
 
         return SubmissionResponse(
             submission_id=submission_id,
             status=final_status,
             timestamp=timestamp,
-            result=result
+            result=result,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Grading failed: {str(e)}")
+        logger.exception("Grading failed")
         await SubmissionStorage.update(submission_id, {
             "status": "failed",
             "result": {"error": str(e)},
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(UTC).isoformat(),
         })
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Grading process failed"
-        )
+            detail="Grading process failed",
+        ) from e
