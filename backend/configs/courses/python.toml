@@ -15,14 +15,99 @@ complexity = "easy"
 description = "Write a program that takes a name as input and prints a greeting."
 starter_code = """
 name = input()
-# Print the greeting message here
+# Print the greeting message here using the 'name' variable
 """
 visible_test_cases = [
-    { input = "Alice", expected_output = "Hello, Alice" }
+    { input = "Alice", expected_output = "Hello, Alice!" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Hello, Bob" },
-    { input = "", expected_output = "Hello, " }
+    { input = "Bob", expected_output = "Hello, Bob!" },
+    { input = "", expected_output = "Hello, !" }
+]
+
+[[topics.problems]]
+id = "io-easy-2"
+title = "Echo"
+complexity = "easy"
+description = "Print the same string that was inputted."
+starter_code = """
+text = input()
+# Output the text that was input
+"""
+visible_test_cases = [
+    { input = "Hello", expected_output = "Hello" }
+]
+hidden_test_cases = [
+    { input = "World", expected_output = "World" },
+    { input = "123", expected_output = "123" }
+]
+
+[[topics.problems]]
+id = "io-medium-1"
+title = "Number Conversion"
+complexity = "medium"
+description = "Take a number as input and convert it to its binary representation."
+starter_code = """
+num = int(input())
+# Convert num to binary and print the result
+"""
+visible_test_cases = [
+    { input = "10", expected_output = "1010" }
+]
+hidden_test_cases = [
+    { input = "5", expected_output = "101" },
+    { input = "0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "io-medium-2"
+title = "Sum of Digits"
+complexity = "medium"  
+description = "Take a number as input and print the sum of its digits."
+starter_code = """
+num = input()
+# Calculate and print the sum of digits in num
+"""
+visible_test_cases = [
+    { input = "123", expected_output = "6" }
+]
+hidden_test_cases = [
+    { input = "999", expected_output = "27" },
+    { input = "0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "io-hard-1"
+title = "Word Count"
+complexity = "hard"
+description = "Count the number of words in a given sentence."
+starter_code = """
+sentence = input()
+# Count and print the number of words in the sentence
+"""
+visible_test_cases = [
+    { input = "Hello world", expected_output = "2" }
+]
+hidden_test_cases = [
+    { input = "This is a test", expected_output = "4" },
+    { input = "one    extra     spaces", expected_output = "3" }
+]
+
+[[topics.problems]]
+id = "io-hard-2"
+title = "Reverse Sentence"
+complexity = "hard"
+description = "Reverse the order of words in a sentence."
+starter_code = """
+sentence = input()
+# Reverse the order of words and print the result
+"""
+visible_test_cases = [
+    { input = "Hello world", expected_output = "world Hello" }
+]
+hidden_test_cases = [
+    { input = "This is cool", expected_output = "cool is This" },
+    { input = "one", expected_output = "one" }
 ]
 
 [[topics]]
@@ -37,7 +122,7 @@ complexity = "easy"
 description = "Check if a number is odd or even."
 starter_code = """
 num = int(input())
-# Complete the odd/even check here
+# Print 'Even' if the number is even, otherwise print 'Odd'
 """
 visible_test_cases = [
     { input = "4", expected_output = "Even" }
@@ -48,14 +133,32 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "control-easy-2"
+title = "Positive or Negative"
+complexity = "easy"
+description = "Determine if a number is positive, negative, or zero."
+starter_code = """
+num = int(input())
+# Print 'Positive', 'Negative', or 'Zero' accordingly
+"""
+visible_test_cases = [
+    { input = "10", expected_output = "Positive" }
+]
+hidden_test_cases = [
+    { input = "-5", expected_output = "Negative" },
+    { input = "0", expected_output = "Zero" }
+]
+
+[[topics.problems]]
 id = "control-medium-1"
 title = "FizzBuzz"
 complexity = "medium"
-description = "Print numbers from 1 to N with FizzBuzz rules."
+description = "Print numbers from 1 to N. Replace multiples of 3 with Fizz, multiples of 5 with Buzz, and multiples of both with FizzBuzz."
 starter_code = """
 n = int(input())
 for i in range(1, n+1):
     # Implement FizzBuzz logic here
+    pass
 """
 visible_test_cases = [
     { input = "5", expected_output = "1\n2\nFizz\n4\nBuzz" }
@@ -66,17 +169,34 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "control-medium-2"
+title = "Leap Year"
+complexity = "medium"
+description = "Determine if a given year is a leap year."
+starter_code = """
+year = int(input())
+# Check if the year is a leap year
+"""
+visible_test_cases = [
+    { input = "2000", expected_output = "Leap Year" }
+]
+hidden_test_cases = [
+    { input = "1900", expected_output = "Not Leap Year" },
+    { input = "2020", expected_output = "Leap Year" }
+]
+
+[[topics.problems]]
 id = "control-hard-1"
 title = "Prime Numbers"
 complexity = "hard"
 description = "Write a program to print all prime numbers up to N."
 starter_code = """
 def is_prime(num):
-    # Implement prime check logic here
+    # Check if num is prime
     pass
 
 n = int(input())
-# Print all primes up to n here
+# Print all primes up to n
 """
 visible_test_cases = [
     { input = "10", expected_output = "2\n3\n5\n7" }
@@ -84,6 +204,23 @@ visible_test_cases = [
 hidden_test_cases = [
     { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" },
     { input = "2", expected_output = "2" }
+]
+
+[[topics.problems]]
+id = "control-hard-2"
+title = "Diamond Pattern"
+complexity = "hard"
+description = "Print a diamond pattern with stars for a given size n."
+starter_code = """
+n = int(input())
+# Print diamond pattern with stars
+"""
+visible_test_cases = [
+    { input = "3", expected_output = "  *\n ***\n*****\n ***\n  *" }
+]
+hidden_test_cases = [
+    { input = "1", expected_output = "*" },
+    { input = "4", expected_output = "   *\n  ***\n *****\n*******\n *****\n  ***\n   *" }
 ]
 
 [[topics]]
@@ -98,7 +235,7 @@ complexity = "easy"
 description = "Define a function that returns the square of a number."
 starter_code = """
 def square(num):
-    # Implement square function here
+    # Return the square of num
     pass
 
 num = int(input())
@@ -113,13 +250,35 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "functions-easy-2"
+title = "Is Palindrome"
+complexity = "easy"
+description = "Check if a given string is a palindrome."
+starter_code = """
+def is_palindrome(s):
+    # Return True if s is a palindrome, False otherwise
+    pass
+
+text = input()
+print(is_palindrome(text))
+"""
+visible_test_cases = [
+    { input = "radar", expected_output = "True" }
+]
+hidden_test_cases = [
+    { input = "hello", expected_output = "False" },
+    { input = "A", expected_output = "True" }
+]
+
+[[topics.problems]]
 id = "functions-medium-1"
 title = "Recursive Factorial"
 complexity = "medium"
 description = "Implement factorial using recursion."
 starter_code = """
 def factorial(n):
-    # Implement recursive factorial here
+    # Base case: factorial of 0 is 1
+    # Recursive case: n * factorial(n-1)
     pass
 
 n = int(input())
@@ -134,13 +293,34 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "functions-medium-2"
+title = "Power Function"
+complexity = "medium"
+description = "Implement a function to calculate the power of a number."
+starter_code = """
+def power(base, exp):
+    # Calculate base raised to the power of exp
+    pass
+
+base, exp = map(int, input().split())
+print(power(base, exp))
+"""
+visible_test_cases = [
+    { input = "2 3", expected_output = "8" }
+]
+hidden_test_cases = [
+    { input = "5 0", expected_output = "1" },
+    { input = "3 -2", expected_output = "0.1111111111111111" }
+]
+
+[[topics.problems]]
 id = "functions-hard-1"
 title = "Memoized Fibonacci"
 complexity = "hard"
 description = "Implement Fibonacci sequence using memoization."
 starter_code = """
 def fibonacci(n, memo={}):
-    # Implement memoized Fibonacci here
+    # Implement Fibonacci using memoization
     pass
 
 n = int(input())
@@ -152,6 +332,31 @@ visible_test_cases = [
 hidden_test_cases = [
     { input = "0", expected_output = "0" },
     { input = "20", expected_output = "6765" }
+]
+
+[[topics.problems]]
+id = "functions-hard-2"
+title = "Matrix Multiplication"
+complexity = "hard"
+description = "Multiply two matrices."
+starter_code = """
+def matrix_multiply(A, B):
+    # Multiply matrices A and B
+    pass
+
+n = int(input())
+A = [list(map(int, input().split())) for _ in range(n)]
+B = [list(map(int, input().split())) for _ in range(n)]
+result = matrix_multiply(A, B)
+for row in result:
+    print(' '.join(map(str, row)))
+"""
+visible_test_cases = [
+    { input = "2\n1 2\n3 4\n5 6\n7 8", expected_output = "19 22\n43 50" }
+]
+hidden_test_cases = [
+    { input = "1\n5\n3", expected_output = "15" },
+    { input = "3\n1 0 0\n0 1 0\n0 0 1\n1 2 3\n4 5 6\n7 8 9", expected_output = "1 2 3\n4 5 6\n7 8 9" }
 ]
 
 [[topics]]
@@ -166,7 +371,7 @@ complexity = "easy"
 description = "Sum all numbers in a list."
 starter_code = """
 numbers = list(map(int, input().split()))
-# Calculate and print sum here
+# Calculate and print the sum of numbers
 """
 visible_test_cases = [
     { input = "1 2 3", expected_output = "6" }
@@ -177,13 +382,31 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "datastructures-easy-2"
+title = "Remove Duplicates"
+complexity = "easy"
+description = "Remove duplicates from a list."
+starter_code = """
+numbers = list(map(int, input().split()))
+# Remove duplicates and print the result as a sorted list
+"""
+visible_test_cases = [
+    { input = "1 2 2 3 3 4", expected_output = "[1, 2, 3, 4]" }
+]
+hidden_test_cases = [
+    { input = "5 5 5 5", expected_output = "[5]" },
+    { input = "1 3 2 4", expected_output = "[1, 2, 3, 4]" }
+]
+
+[[topics.problems]]
 id = "datastructures-medium-1"
 title = "Word Frequency"
 complexity = "medium"
 description = "Count frequency of each word in a string."
 starter_code = """
 words = input().split()
-# Count and print word frequencies here
+# Create a dictionary with word frequencies
+# Print each word and its count in the format: word: count
 """
 visible_test_cases = [
     { input = "hello world hello", expected_output = "hello: 2\nworld: 1" }
@@ -194,13 +417,30 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "datastructures-medium-2"
+title = "Group Anagrams"
+complexity = "medium"
+description = "Group words that are anagrams of each other."
+starter_code = """
+words = input().split()
+# Group anagrams together and print each group
+"""
+visible_test_cases = [
+    { input = "eat tea tan ate nat bat", expected_output = "['eat', 'tea', 'ate']\n['tan', 'nat']\n['bat']" }
+]
+hidden_test_cases = [
+    { input = "abc cba bac xyz", expected_output = "['abc', 'cba', 'bac']\n['xyz']" },
+    { input = "hello", expected_output = "['hello']" }
+]
+
+[[topics.problems]]
 id = "datastructures-hard-1"
 title = "Largest Product"
 complexity = "hard"
 description = "Find the largest product of two numbers in a list."
 starter_code = """
 nums = list(map(int, input().split()))
-# Find and print largest product here
+# Find and print the maximum product of any two numbers
 """
 visible_test_cases = [
     { input = "1 2 3 4", expected_output = "12" }
@@ -208,6 +448,24 @@ visible_test_cases = [
 hidden_test_cases = [
     { input = "-5 -4 1 2", expected_output = "20" },
     { input = "0 0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "datastructures-hard-2"
+title = "Merge Intervals"
+complexity = "hard"
+description = "Merge overlapping intervals."
+starter_code = """
+n = int(input())
+intervals = [list(map(int, input().split())) for _ in range(n)]
+# Merge overlapping intervals and print the result
+"""
+visible_test_cases = [
+    { input = "3\n1 3\n2 6\n8 10", expected_output = "[[1, 6], [8, 10]]" }
+]
+hidden_test_cases = [
+    { input = "2\n1 4\n4 5", expected_output = "[[1, 5]]" },
+    { input = "1\n1 10", expected_output = "[[1, 10]]" }
 ]
 
 [[topics]]
@@ -223,11 +481,11 @@ description = "Create a class `Person` with attributes `name` and `age`, and a m
 starter_code = """
 class Person:
     def __init__(self, name, age):
-        # Initialize attributes here
+        # Initialize name and age attributes here
         pass
     
     def introduce(self):
-        # Implement introduction method here
+        # Return a string introducing the person
         pass
 
 name, age = input().split()
@@ -240,6 +498,38 @@ visible_test_cases = [
 hidden_test_cases = [
     { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." },
     { input = "John 0", expected_output = "Hello, my name is John and I am 0 years old." }
+]
+
+[[topics.problems]]
+id = "oop-easy-2"
+title = "Rectangle Class"
+complexity = "easy"
+description = "Create a class `Rectangle` with width and height attributes, and methods to calculate area and perimeter."
+starter_code = """
+class Rectangle:
+    def __init__(self, width, height):
+        # Initialize width and height
+        pass
+    
+    def area(self):
+        # Return the area of the rectangle
+        pass
+    
+    def perimeter(self):
+        # Return the perimeter of the rectangle
+        pass
+
+width, height = map(int, input().split())
+rect = Rectangle(width, height)
+print(f"Area: {rect.area()}")
+print(f"Perimeter: {rect.perimeter()}")
+"""
+visible_test_cases = [
+    { input = "5 3", expected_output = "Area: 15\nPerimeter: 16" }
+]
+hidden_test_cases = [
+    { input = "10 2", expected_output = "Area: 20\nPerimeter: 24" },
+    { input = "1 1", expected_output = "Area: 1\nPerimeter: 4" }
 ]
 
 [[topics.problems]]
@@ -258,7 +548,7 @@ class Person:
 
 class Student(Person):
     def study(self):
-        # Implement study method here
+        # Return a string indicating the student is studying
         pass
 
 name, age = input().split()
@@ -275,77 +565,143 @@ hidden_test_cases = [
 ]
 
 [[topics.problems]]
+id = "oop-medium-2"
+title = "Bank Account"
+complexity = "medium"
+description = "Create a class `BankAccount` with methods to deposit, withdraw, and check balance."
+starter_code = """
+class BankAccount:
+    def __init__(self, initial_balance=0):
+        # Initialize balance
+        pass
+    
+    def deposit(self, amount):
+        # Add amount to balance
+        pass
+    
+    def withdraw(self, amount):
+        # Withdraw amount if sufficient funds
+        # Return True if successful, False otherwise
+        pass
+    
+    def get_balance(self):
+        # Return current balance
+        pass
+
+account = BankAccount(1000)
+operations = int(input())
+for _ in range(operations):
+    op = input().split()
+    if op[0] == 'deposit':
+        account.deposit(int(op[1]))
+    elif op[0] == 'withdraw':
+        success = account.withdraw(int(op[1]))
+        print("Success" if success else "Insufficient funds")
+print(f"Balance: {account.get_balance()}")
+"""
+visible_test_cases = [
+    { input = "3\ndeposit 500\nwithdraw 200\nwithdraw 2000", expected_output = "Success\nInsufficient funds\nBalance: 1300" }
+]
+hidden_test_cases = [
+    { input = "2\ndeposit 1000\nwithdraw 1500", expected_output = "Success\nBalance: 500" },
+    { input = "1\nwithdraw 2000", expected_output = "Insufficient funds\nBalance: 1000" }
+]
+
+[[topics.problems]]
 id = "oop-hard-1"
 title = "Polymorphism"
 complexity = "hard"
-description = "Create a method `speak` in the `Person` class and override it in the `Student` class."
+description = "Create a class hierarchy with Animal as base class and Dog and Cat as derived classes, each with their own speak method."
 starter_code = """
-class Person:
+class Animal:
     def __init__(self, name):
         self.name = name
     
     def speak(self):
-        # Implement base speak method here
+        # Base implementation
         pass
 
-class Student(Person):
+class Dog(Animal):
     def speak(self):
-        # Override speak method here
+        # Return dog-specific sound
         pass
 
-name = input()
-student = Student(name)
-print(student.speak())
+class Cat(Animal):
+    def speak(self):
+        # Return cat-specific sound
+        pass
+
+animal_type, name = input().split()
+if animal_type == "dog":
+    animal = Dog(name)
+else:
+    animal = Cat(name)
+print(animal.speak())
 """
 visible_test_cases = [
-    { input = "Alice", expected_output = "Alice says: Hello, I am a student!" }
+    { input = "dog Rex", expected_output = "Rex says: Woof!" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" },
-    { input = "John", expected_output = "John says: Hello, I am a student!" }
-]
-
-[[topics]]
-id = "exceptions"
-title = "Exception Handling"
-description = "Handle exceptions and create custom error messages"
-
-[[topics.problems]]
-id = "exceptions-easy-1"
-title = "Try-Except Block"
-complexity = "easy"
-description = "Handle a division by zero error and print 'Cannot divide by zero'."
-starter_code = """
-try:
-    # Attempt division by zero here
-    pass
-except:
-    # Handle the exception here
-    pass
-"""
-visible_test_cases = [
-    { input = "", expected_output = "Cannot divide by zero" }
-]
-hidden_test_cases = [
-    { input = "", expected_output = "Cannot divide by zero" }
+    { input = "cat Whiskers", expected_output = "Whiskers says: Meow!" },
+    { input = "dog Buddy", expected_output = "Buddy says: Woof!" }
 ]
 
 [[topics.problems]]
-id = "exceptions-medium-1"
-title = "Custom Exception"
-complexity = "medium"
-description = "Create a custom exception `NegativeNumberError` and raise it when a negative number is passed."
+id = "oop-hard-2"
+title = "Shape Hierarchy"
+complexity = "hard"
+description = "Create an abstract Shape class with Circle and Square subclasses, each implementing area and perimeter methods."
 starter_code = """
-class NegativeNumberError(Exception):
-    pass
+import math
 
-num = int(input())
-# Check for negative number and raise custom exception here
+class Shape:
+    def area(self):
+        # Abstract method
+        pass
+    
+    def perimeter(self):
+        # Abstract method
+        pass
+
+class Circle(Shape):
+    def __init__(self, radius):
+        # Initialize radius
+        pass
+    
+    def area(self):
+        # Return area of circle
+        pass
+    
+    def perimeter(self):
+        # Return circumference of circle
+        pass
+
+class Square(Shape):
+    def __init__(self, side):
+        # Initialize side
+        pass
+    
+    def area(self):
+        # Return area of square
+        pass
+    
+    def perimeter(self):
+        # Return perimeter of square
+        pass
+
+shape_type, dimension = input().split()
+dimension = float(dimension)
+if shape_type == "circle":
+    shape = Circle(dimension)
+else:
+    shape = Square(dimension)
+print(f"Area: {shape.area():.2f}")
+print(f"Perimeter: {shape.perimeter():.2f}")
 """
 visible_test_cases = [
-    { input = "-5", expected_output = "Negative number error!" }
+    { input = "circle 5", expected_output = "Area: 78.54\nPerimeter: 31.42" }
 ]
 hidden_test_cases = [
-    { input = "-10", expected_output = "Negative number error!" },
-    { input = "0", expected_output = "" }
+    { input = "square 4", expected_output = "Area: 16.00\nPerimeter: 16.00" },
+    { input = "circle 2", expected_output = "Area: 12.57\nPerimeter: 12.57" }
 ]

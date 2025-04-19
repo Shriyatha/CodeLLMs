@@ -1,6 +1,6 @@
 [course]
 id = "javascript"
-title = "JavaScript Programming"
+title = "JavaScript Programming"  
 description = "Learn JavaScript from basics to advanced concepts"
 
 [[topics]]
@@ -11,26 +11,104 @@ description = "Working with input and output operations in JavaScript"
 [[topics.problems]]
 id = "io-easy-1"
 title = "Basic Input"
-complexity = "easy"
+complexity = "easy" 
 description = "Write a program that takes a name as input and prints a greeting."
 starter_code = """
-const readline = require('readline').createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-readline.question('Enter your name: ', name => {
-  // Print greeting message here
-  readline.close();
-});
+const name = process.argv[2];
+// Print greeting message here using the name variable
 """
 visible_test_cases = [
-    { input = "Alice", expected_output = "Hello, Alice" }
+    { input = "Alice", expected_output = "Hello, Alice!" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Hello, Bob" }
+    { input = "Bob", expected_output = "Hello, Bob!" },
+    { input = "", expected_output = "Hello, !" }
 ]
 
+[[topics.problems]]
+id = "io-easy-2"
+title = "Echo"
+complexity = "easy"
+description = "Print the same string that was inputted."
+starter_code = """
+const text = process.argv[2];
+// Output the text that was input
+"""
+visible_test_cases = [
+    { input = "Hello", expected_output = "Hello" }
+]
+hidden_test_cases = [
+    { input = "World", expected_output = "World" },
+    { input = "123", expected_output = "123" }
+]
+
+[[topics.problems]]
+id = "io-medium-1"
+title = "Number Conversion"
+complexity = "medium"
+description = "Take a number as input and convert it to its binary representation."
+starter_code = """
+const num = parseInt(process.argv[2]);
+// Convert num to binary and print the result
+"""
+visible_test_cases = [
+    { input = "10", expected_output = "1010" }
+]
+hidden_test_cases = [
+    { input = "5", expected_output = "101" },
+    { input = "0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "io-medium-2"
+title = "Sum of Digits"
+complexity = "medium"
+description = "Take a number as input and print the sum of its digits."
+starter_code = """
+const num = process.argv[2];
+// Calculate and print the sum of digits in num
+"""
+visible_test_cases = [
+    { input = "123", expected_output = "6" }
+]
+hidden_test_cases = [
+    { input = "999", expected_output = "27" },
+    { input = "0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "io-hard-1"
+title = "Word Count"
+complexity = "hard"
+description = "Count the number of words in a given sentence."
+starter_code = """
+const sentence = process.argv[2];
+// Count and print the number of words in the sentence
+"""
+visible_test_cases = [
+    { input = "Hello world", expected_output = "2" }
+]
+hidden_test_cases = [
+    { input = "This is a test", expected_output = "4" },
+    { input = "one    extra     spaces", expected_output = "3" }
+]
+
+[[topics.problems]]
+id = "io-hard-2"
+title = "Reverse Sentence"
+complexity = "hard"
+description = "Reverse the order of words in a sentence."
+starter_code = """
+const sentence = process.argv[2];
+// Reverse the order of words and print the result
+"""
+visible_test_cases = [
+    { input = "Hello world", expected_output = "world Hello" }
+]
+hidden_test_cases = [
+    { input = "This is cool", expected_output = "cool is This" },
+    { input = "one", expected_output = "one" }
+]
 
 [[topics]]
 id = "control"
@@ -43,48 +121,68 @@ title = "Odd or Even"
 complexity = "easy"
 description = "Check if a number is odd or even."
 starter_code = """
-const readline = require('readline').createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-readline.question('Enter a number: ', num => {
-  const number = parseInt(num);
-  // Implement odd/even check here
-  readline.close();
-});
+const num = parseInt(process.argv[2]);
+// Print 'Even' if the number is even, otherwise print 'Odd'
 """
 visible_test_cases = [
     { input = "4", expected_output = "Even" }
 ]
 hidden_test_cases = [
-    { input = "7", expected_output = "Odd" }
+    { input = "7", expected_output = "Odd" },
+    { input = "0", expected_output = "Even" }
+]
+
+[[topics.problems]]
+id = "control-easy-2"
+title = "Positive or Negative"
+complexity = "easy"
+description = "Determine if a number is positive, negative, or zero."
+starter_code = """
+const num = parseInt(process.argv[2]);
+// Print 'Positive', 'Negative', or 'Zero' accordingly
+"""
+visible_test_cases = [
+    { input = "10", expected_output = "Positive" }
+]
+hidden_test_cases = [
+    { input = "-5", expected_output = "Negative" },
+    { input = "0", expected_output = "Zero" }
 ]
 
 [[topics.problems]]
 id = "control-medium-1"
 title = "FizzBuzz"
 complexity = "medium"
-description = "Print numbers from 1 to N with FizzBuzz rules."
+description = "Print numbers from 1 to N. Replace multiples of 3 with Fizz, multiples of 5 with Buzz, and multiples of both with FizzBuzz."
 starter_code = """
-const readline = require('readline').createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
-readline.question('Enter a number: ', n => {
-  const limit = parseInt(n);
-  for (let i = 1; i <= limit; i++) {
+const n = parseInt(process.argv[2]);
+for (let i = 1; i <= n; i++) {
     // Implement FizzBuzz logic here
-  }
-  readline.close();
-});
+}
 """
 visible_test_cases = [
     { input = "5", expected_output = "1\n2\nFizz\n4\nBuzz" }
 ]
 hidden_test_cases = [
-    { input = "15", expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz" }
+    { input = "15", expected_output = "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz" },
+    { input = "1", expected_output = "1" }
+]
+
+[[topics.problems]]
+id = "control-medium-2"
+title = "Leap Year"
+complexity = "medium"
+description = "Determine if a given year is a leap year."
+starter_code = """
+const year = parseInt(process.argv[2]);
+// Check if the year is a leap year
+"""
+visible_test_cases = [
+    { input = "2000", expected_output = "Leap Year" }
+]
+hidden_test_cases = [
+    { input = "1900", expected_output = "Not Leap Year" },
+    { input = "2020", expected_output = "Leap Year" }
 ]
 
 [[topics.problems]]
@@ -93,30 +191,36 @@ title = "Prime Numbers"
 complexity = "hard"
 description = "Write a program to print all prime numbers up to N."
 starter_code = """
-const readline = require('readline').createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
 function isPrime(num) {
-  // Implement prime check logic here
+    // Check if num is prime
 }
 
-readline.question('Enter a number: ', n => {
-  const limit = parseInt(n);
-  for (let i = 2; i <= limit; i++) {
-    if (isPrime(i)) {
-      console.log(i);
-    }
-  }
-  readline.close();
-});
+const n = parseInt(process.argv[2]);
+// Print all primes up to n
 """
 visible_test_cases = [
     { input = "10", expected_output = "2\n3\n5\n7" }
 ]
 hidden_test_cases = [
-    { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" }
+    { input = "20", expected_output = "2\n3\n5\n7\n11\n13\n17\n19" },
+    { input = "2", expected_output = "2" }
+]
+
+[[topics.problems]]
+id = "control-hard-2"
+title = "Diamond Pattern"
+complexity = "hard"
+description = "Print a diamond pattern with stars for a given size n."
+starter_code = """
+const n = parseInt(process.argv[2]);
+// Print diamond pattern with stars
+"""
+visible_test_cases = [
+    { input = "3", expected_output = "  *\n ***\n*****\n ***\n  *" }
+]
+hidden_test_cases = [
+    { input = "1", expected_output = "*" },
+    { input = "4", expected_output = "   *\n  ***\n *****\n*******\n *****\n  ***\n   *" }
 ]
 
 [[topics]]
@@ -128,10 +232,10 @@ description = "Define and use functions effectively in JavaScript"
 id = "functions-easy-1"
 title = "Simple Function"
 complexity = "easy"
-description = "Write a function that returns the square of a number."
+description = "Define a function that returns the square of a number."
 starter_code = """
-function square(n) {
-  // Implement square function here
+function square(num) {
+    // Return the square of num
 }
 
 const num = parseInt(process.argv[2]);
@@ -141,7 +245,29 @@ visible_test_cases = [
     { input = "4", expected_output = "16" }
 ]
 hidden_test_cases = [
-    { input = "5", expected_output = "25" }
+    { input = "0", expected_output = "0" },
+    { input = "-5", expected_output = "25" }
+]
+
+[[topics.problems]]
+id = "functions-easy-2"
+title = "Is Palindrome"
+complexity = "easy"
+description = "Check if a given string is a palindrome."
+starter_code = """
+function isPalindrome(s) {
+    // Return true if s is a palindrome, false otherwise
+}
+
+const text = process.argv[2];
+console.log(isPalindrome(text));
+"""
+visible_test_cases = [
+    { input = "radar", expected_output = "true" }
+]
+hidden_test_cases = [
+    { input = "hello", expected_output = "false" },
+    { input = "A", expected_output = "true" }
 ]
 
 [[topics.problems]]
@@ -151,17 +277,40 @@ complexity = "medium"
 description = "Implement factorial using recursion."
 starter_code = """
 function factorial(n) {
-  // Implement recursive factorial here
+    // Base case: factorial of 0 is 1
+    // Recursive case: n * factorial(n-1)
 }
 
-const num = parseInt(process.argv[2]);
-console.log(factorial(num));
+const n = parseInt(process.argv[2]);
+console.log(factorial(n));
 """
 visible_test_cases = [
     { input = "5", expected_output = "120" }
 ]
 hidden_test_cases = [
-    { input = "0", expected_output = "1" }
+    { input = "0", expected_output = "1" },
+    { input = "1", expected_output = "1" }
+]
+
+[[topics.problems]]
+id = "functions-medium-2"
+title = "Power Function"
+complexity = "medium"
+description = "Implement a function to calculate the power of a number."
+starter_code = """
+function power(base, exp) {
+    // Calculate base raised to the power of exp
+}
+
+const [base, exp] = process.argv.slice(2).map(Number);
+console.log(power(base, exp));
+"""
+visible_test_cases = [
+    { input = "2 3", expected_output = "8" }
+]
+hidden_test_cases = [
+    { input = "5 0", expected_output = "1" },
+    { input = "3 -2", expected_output = "0.1111111111111111" }
 ]
 
 [[topics.problems]]
@@ -172,17 +321,151 @@ description = "Implement Fibonacci sequence using memoization."
 starter_code = """
 const memo = {};
 function fibonacci(n) {
-  // Implement memoized Fibonacci here
+    // Implement Fibonacci using memoization
 }
 
-const num = parseInt(process.argv[2]);
-console.log(fibonacci(num));
+const n = parseInt(process.argv[2]);
+console.log(fibonacci(n));
 """
 visible_test_cases = [
     { input = "10", expected_output = "55" }
 ]
 hidden_test_cases = [
+    { input = "0", expected_output = "0" },
     { input = "20", expected_output = "6765" }
+]
+
+[[topics.problems]]
+id = "functions-hard-2"
+title = "Matrix Multiplication"
+complexity = "hard"
+description = "Multiply two matrices."
+starter_code = """
+function matrixMultiply(A, B) {
+    // Multiply matrices A and B
+}
+
+const n = parseInt(process.argv[2]);
+// Assume matrices are provided as flattened arrays
+const A = [[1, 2], [3, 4]];
+const B = [[5, 6], [7, 8]];
+const result = matrixMultiply(A, B);
+console.log(result.map(row => row.join(' ')).join('\\n'));
+"""
+visible_test_cases = [
+    { input = "2", expected_output = "19 22\n43 50" }
+]
+hidden_test_cases = [
+    { input = "1", expected_output = "30" },
+    { input = "3", expected_output = "1 2 3\n4 5 6\n7 8 9" }
+]
+
+[[topics]]
+id = "datastructures"
+title = "Data Structures"
+description = "Arrays, objects, sets, and more"
+
+[[topics.problems]]
+id = "datastructures-easy-1"
+title = "List Sum"
+complexity = "easy"
+description = "Sum all numbers in an array."
+starter_code = """
+const numbers = process.argv[2].split(' ').map(Number);
+// Calculate and print the sum of numbers
+"""
+visible_test_cases = [
+    { input = "1 2 3", expected_output = "6" }
+]
+hidden_test_cases = [
+    { input = "10 -5 3", expected_output = "8" },
+    { input = "", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "datastructures-easy-2"
+title = "Remove Duplicates"
+complexity = "easy"
+description = "Remove duplicates from an array."
+starter_code = """
+const numbers = process.argv[2].split(' ').map(Number);
+// Remove duplicates and print the result as a sorted array
+"""
+visible_test_cases = [
+    { input = "1 2 2 3 3 4", expected_output = "[1, 2, 3, 4]" }
+]
+hidden_test_cases = [
+    { input = "5 5 5 5", expected_output = "[5]" },
+    { input = "1 3 2 4", expected_output = "[1, 2, 3, 4]" }
+]
+
+[[topics.problems]]
+id = "datastructures-medium-1"
+title = "Word Frequency"
+complexity = "medium"
+description = "Count frequency of each word in a string."
+starter_code = """
+const words = process.argv[2].split(' ');
+// Create an object with word frequencies
+// Print each word and its count in the format: word: count
+"""
+visible_test_cases = [
+    { input = "hello world hello", expected_output = "hello: 2\nworld: 1" }
+]
+hidden_test_cases = [
+    { input = "a a a b b", expected_output = "a: 3\nb: 2" },
+    { input = "single", expected_output = "single: 1" }
+]
+
+[[topics.problems]]
+id = "datastructures-medium-2"
+title = "Group Anagrams"
+complexity = "medium"
+description = "Group words that are anagrams of each other."
+starter_code = """
+const words = process.argv[2].split(' ');
+// Group anagrams together and print each group as an array
+"""
+visible_test_cases = [
+    { input = "eat tea tan ate nat bat", expected_output = "['eat', 'tea', 'ate']\n['tan', 'nat']\n['bat']" }
+]
+hidden_test_cases = [
+    { input = "abc cba bac xyz", expected_output = "['abc', 'cba', 'bac']\n['xyz']" },
+    { input = "hello", expected_output = "['hello']" }
+]
+
+[[topics.problems]]
+id = "datastructures-hard-1"
+title = "Largest Product"
+complexity = "hard"
+description = "Find the largest product of two numbers in an array."
+starter_code = """
+const nums = process.argv[2].split(' ').map(Number);
+// Find and print the maximum product of any two numbers
+"""
+visible_test_cases = [
+    { input = "1 2 3 4", expected_output = "12" }
+]
+hidden_test_cases = [
+    { input = "-5 -4 1 2", expected_output = "20" },
+    { input = "0 0", expected_output = "0" }
+]
+
+[[topics.problems]]
+id = "datastructures-hard-2"
+title = "Merge Intervals"
+complexity = "hard"
+description = "Merge overlapping intervals."
+starter_code = """
+const intervals = JSON.parse(process.argv[2]);
+// Merge overlapping intervals and print the result
+"""
+visible_test_cases = [
+    { input = "[[1,3],[2,6],[8,10]]", expected_output = "[[1, 6], [8, 10]]" }
+]
+hidden_test_cases = [
+    { input = "[[1,4],[4,5]]", expected_output = "[[1, 5]]" },
+    { input = "[[1,10]]", expected_output = "[[1, 10]]" }
 ]
 
 [[topics]]
@@ -197,24 +480,58 @@ complexity = "easy"
 description = "Create a class `Person` with attributes `name` and `age`, and a method `introduce`."
 starter_code = """
 class Person {
-  constructor(name, age) {
-    // Initialize attributes here
-  }
-  
-  introduce() {
-    // Implement introduction method here
-  }
+    constructor(name, age) {
+        // Initialize name and age attributes here
+    }
+    
+    introduce() {
+        // Return a string introducing the person
+    }
 }
 
 const [name, age] = process.argv.slice(2);
-const p = new Person(name, parseInt(age));
-p.introduce();
+const person = new Person(name, parseInt(age));
+console.log(person.introduce());
 """
 visible_test_cases = [
     { input = "Alice 30", expected_output = "Hello, my name is Alice and I am 30 years old." }
 ]
 hidden_test_cases = [
-    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." }
+    { input = "Bob 25", expected_output = "Hello, my name is Bob and I am 25 years old." },
+    { input = "John 0", expected_output = "Hello, my name is John and I am 0 years old." }
+]
+
+[[topics.problems]]
+id = "oop-easy-2"
+title = "Rectangle Class"
+complexity = "easy"
+description = "Create a class `Rectangle` with width and height attributes, and methods to calculate area and perimeter."
+starter_code = """
+class Rectangle {
+    constructor(width, height) {
+        // Initialize width and height
+    }
+    
+    area() {
+        // Return the area of the rectangle
+    }
+    
+    perimeter() {
+        // Return the perimeter of the rectangle
+    }
+}
+
+const [width, height] = process.argv.slice(2).map(Number);
+const rect = new Rectangle(width, height);
+console.log(`Area: ${rect.area()}`);
+console.log(`Perimeter: ${rect.perimeter()}`);
+"""
+visible_test_cases = [
+    { input = "5 3", expected_output = "Area: 15\nPerimeter: 16" }
+]
+hidden_test_cases = [
+    { input = "10 2", expected_output = "Area: 20\nPerimeter: 24" },
+    { input = "1 1", expected_output = "Area: 1\nPerimeter: 4" }
 ]
 
 [[topics.problems]]
@@ -224,116 +541,191 @@ complexity = "medium"
 description = "Create a class `Student` that inherits from `Person` and adds a method `study`."
 starter_code = """
 class Person {
-  constructor(name, age) {
-    this.name = name;
-    this.age = age;
-  }
-  
-  introduce() {
-    console.log(`Hello, my name is ${this.name} and I am ${this.age} years old.`);
-  }
+    constructor(name, age) {
+        this.name = name;
+        this.age = age;
+    }
+    
+    introduce() {
+        return `Hello, my name is ${this.name} and I am ${this.age} years old.`;
+    }
 }
 
 class Student extends Person {
-  study() {
-    // Implement study method here
-  }
+    study() {
+        // Return a string indicating the student is studying
+    }
 }
 
 const [name, age] = process.argv.slice(2);
-const s = new Student(name, parseInt(age));
-s.introduce();
-s.study();
+const student = new Student(name, parseInt(age));
+console.log(student.introduce());
+console.log(student.study());
 """
 visible_test_cases = [
     { input = "Alice 20", expected_output = "Hello, my name is Alice and I am 20 years old.\nI am studying." }
 ]
 hidden_test_cases = [
-    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." }
+    { input = "Bob 22", expected_output = "Hello, my name is Bob and I am 22 years old.\nI am studying." },
+    { input = "Child 10", expected_output = "Hello, my name is Child and I am 10 years old.\nI am studying." }
+]
+
+[[topics.problems]]
+id = "oop-medium-2"
+title = "Bank Account"
+complexity = "medium"
+description = "Create a class `BankAccount` with methods to deposit, withdraw, and check balance."
+starter_code = """
+class BankAccount {
+    constructor(initialBalance = 0) {
+        // Initialize balance
+    }
+    
+    deposit(amount) {
+        // Add amount to balance
+    }
+    
+    withdraw(amount) {
+        // Withdraw amount if sufficient funds
+        // Return true if successful, false otherwise
+    }
+    
+    getBalance() {
+        // Return current balance
+    }
+}
+
+const initialBalance = parseInt(process.argv[2]);
+const operations = process.argv.slice(3);
+const account = new BankAccount(initialBalance);
+
+operations.forEach(op => {
+    const [action, amount] = op.split(':');
+    if (action === 'deposit') {
+        account.deposit(parseInt(amount));
+    } else if (action === 'withdraw') {
+        const success = account.withdraw(parseInt(amount));
+        console.log(success ? "Success" : "Insufficient funds");
+    }
+});
+console.log(`Balance: ${account.getBalance()}`);
+"""
+visible_test_cases = [
+    { input = "1000 deposit:500 withdraw:200 withdraw:2000", expected_output = "Success\nInsufficient funds\nBalance: 1300" }
+]
+hidden_test_cases = [
+    { input = "1000 deposit:1000 withdraw:1500", expected_output = "Success\nBalance: 500" },
+    { input = "1000 withdraw:2000", expected_output = "Insufficient funds\nBalance: 1000" }
 ]
 
 [[topics.problems]]
 id = "oop-hard-1"
 title = "Polymorphism"
+complexity = "hard"  
+description = "Create a class hierarchy with Animal as base class and Dog and Cat as derived classes, each with their own speak method."
+starter_code = """
+class Animal {
+    constructor(name) {
+        this.name = name;
+    }
+    
+    speak() {
+        // Base implementation
+    }
+}
+
+class Dog extends Animal {
+    speak() {
+        // Return dog-specific sound
+    }
+}
+
+class Cat extends Animal {
+    speak() {
+        // Return cat-specific sound
+    }
+}
+
+const [animalType, name] = process.argv.slice(2);
+let animal;
+if (animalType === "dog") {
+    animal = new Dog(name);
+} else {
+    animal = new Cat(name);
+}
+console.log(animal.speak());
+"""
+visible_test_cases = [
+    { input = "dog Rex", expected_output = "Rex says: Woof!" }
+]
+hidden_test_cases = [
+    { input = "cat Whiskers", expected_output = "Whiskers says: Meow!" },
+    { input = "dog Buddy", expected_output = "Buddy says: Woof!" }
+]
+
+[[topics.problems]]
+id = "oop-hard-2"
+title = "Shape Hierarchy"
 complexity = "hard"
-description = "Create a method `speak` in the `Person` class and override it in the `Student` class."
+description = "Create an abstract Shape class with Circle and Square subclasses, each implementing area and perimeter methods."
 starter_code = """
-class Person {
-  constructor(name) {
-    this.name = name;
-  }
-  
-  speak() {
-    // Implement base speak method here
-  }
+class Shape {
+    area() {
+        // Abstract method
+        throw new Error("Method not implemented");
+    }
+    
+    perimeter() {
+        // Abstract method
+        throw new Error("Method not implemented");
+    }
 }
 
-class Student extends Person {
-  speak() {
-    // Override speak method here
-  }
+class Circle extends Shape {
+    constructor(radius) {
+        super();
+        // Initialize radius
+    }
+    
+    area() {
+        // Return area of circle
+    }
+    
+    perimeter() {
+        // Return circumference of circle
+    }
 }
 
-const [name] = process.argv.slice(2);
-const s = new Student(name);
-s.speak();
+class Square extends Shape {
+    constructor(side) {
+        super();
+        // Initialize side
+    }
+    
+    area() {
+        // Return area of square
+    }
+    
+    perimeter() {
+        // Return perimeter of square
+    }
+}
+
+const [shapeType, dimension] = process.argv.slice(2);
+const size = parseFloat(dimension);
+let shape;
+if (shapeType === "circle") {
+    shape = new Circle(size);
+} else {
+    shape = new Square(size);
+}
+console.log(`Area: ${shape.area().toFixed(2)}`);
+console.log(`Perimeter: ${shape.perimeter().toFixed(2)}`);
 """
 visible_test_cases = [
-    { input = "Alice", expected_output = "Alice says: Hello, I am a student!" }
+    { input = "circle 5", expected_output = "Area: 78.54\nPerimeter: 31.42" }
 ]
 hidden_test_cases = [
-    { input = "Bob", expected_output = "Bob says: Hello, I am a student!" }
+    { input = "square 4", expected_output = "Area: 16.00\nPerimeter: 16.00" },
+    { input = "circle 2", expected_output = "Area: 12.57\nPerimeter: 12.57" }
 ]
-
-[[topics]]
-id = "exceptions"
-title = "Exception Handling"
-description = "Handle exceptions and create custom error messages in JavaScript"
-
-[[topics.problems]]
-id = "exceptions-easy-1"
-title = "Try-Catch Block"
-complexity = "easy"
-description = "Handle a division by zero error and print 'Cannot divide by zero'."
-starter_code = """
-try {
-  // Attempt division by zero here
-} catch (e) {
-  // Handle the exception here
-}
-"""
-visible_test_cases = [
-    { input = "", expected_output = "Cannot divide by zero" }
-]
-hidden_test_cases = [
-    { input = "", expected_output = "Cannot divide by zero" }
-]
-
-[[topics.problems]]
-id = "exceptions-medium-1"
-title = "Custom Exception"
-complexity = "medium"
-description = "Create a custom exception `NegativeNumberError` and raise it when a negative number is passed."
-starter_code = """
-class NegativeNumberError extends Error {}
-
-function checkPositive(num) {
-  // Check for negative number and throw custom exception
-}
-
-try {
-  const num = parseInt(process.argv[2]);
-  checkPositive(num);
-} catch (e) {
-  if (e instanceof NegativeNumberError) {
-    console.log(e.message);
-  }
-}
-"""
-visible_test_cases = [
-    { input = "-5", expected_output = "Negative number error!" }
-]
-hidden_test_cases = [
-    { input = "-10", expected_output = "Negative number error!" }
-]
-
